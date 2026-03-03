@@ -5,12 +5,6 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="Video Editor WPF" Height="800" Width="1400">
-    <Window.Resources>
-        <Style TargetType="Button">
-            <Setter Property="Margin" Value="5"/>
-            <Setter Property="Padding" Value="10,5"/>
-        </Style>
-    </Window.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="250"/>
@@ -18,169 +12,141 @@
             <ColumnDefinition Width="300"/>
         </Grid.ColumnDefinitions>
 
-        <Border Grid.Column="0" BorderBrush="Gray" BorderThickness="1">
+        <!-- LEFT: Media Library -->
+        <Border Grid.Column="0" BorderBrush="Gray" BorderThickness="1" Margin="5">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <TextBlock Grid.Row="0" Text="Media Library" FontWeight="Bold" Margin="10"/>
-                <StackPanel Grid.Row="1" Margin="10">
-                    <Button Content="Import Video" Command="{Binding ImportVideoCommand}"/>
-                    <ListBox ItemsSource="{Binding MediaFiles}"
-                             SelectedItem="{Binding SelectedMediaFile}"
-                             Height="400"/>
-                </StackPanel>
+
+                <TextBlock Grid.Row="0" Text="📁 Media Library"
+                      Margin="10" FontWeight="Bold" HorizontalAlignment="Center"/>
+
+                <ListBox x:Name="MediaLibraryList" Grid.Row="1"
+                     ItemsSource="{Binding MediaFiles}"
+                     Margin="10" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     MouseDoubleClick="MediaLibraryList_MouseDoubleClick">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Image Source="{Binding ThumbnailPath}" Width="50" Height="40" Margin="0,0,10,0"/>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding FileName}" FontWeight="Bold"/>
+                                    <TextBlock Text="{Binding DurationString}" Foreground="Gray" FontSize="12"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <Button x:Name="AddMediaButton" Grid.Row="2" Command="{Binding AddMediaCommand}"
+                    Content="➕ Add Files" Height="35" Margin="10" VerticalAlignment="Bottom"/>
             </Grid>
         </Border>
 
-        <Grid Grid.Column="1" Margin="10">
+        <!-- MIDDLE: Preview + Timeline -->
+        <Grid Grid.Column="1" Margin="5">
             <Grid.RowDefinitions>
                 <RowDefinition Height="400"/>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="200"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
+            <!-- Preview -->
             <Border Grid.Row="0" BorderBrush="Gray" BorderThickness="1">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <Image Grid.Row="0" Source="{Binding PreviewImage}" Stretch="Uniform"/>
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center">
-                        <TextBlock Text="{Binding CurrentTime, StringFormat='Time: {0:hh\\:mm\\:ss}'}" Margin="10,0"/>
-                        <ProgressBar Value="{Binding PreviewPosition}" Maximum="100" Width="200" Height="20"/>
-                    </StackPanel>
-                </Grid>
+                <MediaElement x:Name="PreviewMediaElement"
+                         LoadedBehavior="Manual" UnloadedBehavior="Stop"
+                         Stretch="Uniform"/>
             </Border>
 
-            <Border Grid.Row="1" BorderBrush="Gray" BorderThickness="1">
-                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                    <Canvas Background="Black" Height="150" Width="{Binding TimelineWidth}">
-                        <Rectangle Width="2" Height="150" Fill="Red"
-                                   Canvas.Left="{Binding PlayheadPosition}">
-                            <Rectangle.RenderTransform>
-                                <TranslateTransform X="{Binding PlayheadPosition}"/>
-                            </Rectangle.RenderTransform>
-                        </Rectangle>
+            <!-- Transport Controls -->
+            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="20">
+                <Button Command="{Binding PreviousFrameCommand}" Content="⏮" Width="45" Height="35" Margin="5"/>
+                <Button x:Name="PlayPauseBtn" Command="{Binding PlayPauseCommand}" Content="⏸" Width="45" Height="35" Margin="5"/>
+                <Button Command="{Binding NextFrameCommand}" Content="⏭" Width="45" Height="35" Margin="5"/>
+                <TextBlock x:Name="CurrentTimeLabel" Text="00:00:00"
+                      Margin="25,0 15,0" VerticalAlignment="Center" FontWeight="Bold"/>
+                <Slider x:Name="TimelineSlider" Width="250" Height="25" Margin="10,0"
+                    Value="{Binding Timeline.PlayheadPosition}"/>
+                <TextBlock x:Name="TotalTimeLabel" Text="00:00:00" Margin="10,0" VerticalAlignment="Center"/>
+            </StackPanel>
 
-                        <ItemsControl ItemsSource="{Binding TimelineClips}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <Canvas/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Rectangle Width="{Binding Width}" Height="80"
-                                               Fill="SteelBlue" Stroke="White" StrokeThickness="2"
-                                               Canvas.Left="{Binding LeftPosition}"
-                                               Canvas.Top="10">
-                                        <Rectangle.ToolTip>
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding FileName}"/>
-                                                <TextBlock Text="{Binding Duration, StringFormat='Duration: {0:hh\\:mm\\:ss}'}"/>
-                                            </StackPanel>
-                                        </Rectangle.ToolTip>
-                                    </Rectangle>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </Canvas>
-                </ScrollViewer>
-            </Border>
+            <!-- Timeline -->
+            <ScrollViewer Grid.Row="2" x:Name="TimelineScrollViewer"
+            HorizontalScrollBarVisibility="Auto"
+            VerticalScrollBarVisibility="Auto">
+                <Canvas x:Name="TimelineCanvas" Width="4000" Height="400" Background="#FF2D2D2D"
+                MouseLeftButtonDown="TimelineCanvas_MouseLeftButtonDown"
+                MouseMove="TimelineCanvas_MouseMove"
+                MouseLeftButtonUp="TimelineCanvas_MouseLeftButtonUp"
+                MouseWheel="TimelineCanvas_MouseWheel">
 
-            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center">
-                <Button Content="⏮" Command="{Binding PreviousFrameCommand}" FontSize="20"/>
-                <Button Content="⏸" Command="{Binding PlayPauseCommand}" FontSize="20"/>
-                <Button Content="⏭" Command="{Binding NextFrameCommand}" FontSize="20"/>
-                <Button Content="Trim Clip" Command="{Binding TrimClipCommand}"/>
-                <Button Content="Add to Timeline" Command="{Binding AddToTimelineCommand}"/>
+                    <!-- Time Markers Background -->
+                    <Canvas x:Name="TimeMarkersCanvas" Width="4000" Height="30" Canvas.Top="0" IsHitTestVisible="False"/>
+
+                    <!-- Playhead -->
+                    <Rectangle x:Name="Playhead" Width="3" Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}"
+               Fill="LimeGreen" Canvas.Left="{Binding Timeline.PlayheadPosition}"/>
+
+                    <!-- Track Headers + Video/Audio Tracks -->
+                    <Rectangle Canvas.Left="0" Canvas.Top="40" Width="100" Height="60" Fill="#FF3D3D3D"/>
+                    <TextBlock Text="🎥 Video Track 1" Foreground="White" Canvas.Left="10" Canvas.Top="55" FontWeight="Bold"/>
+
+                    <Rectangle Canvas.Left="0" Canvas.Top="110" Width="100" Height="60" Fill="#FF4D4D4D"/>
+                    <TextBlock Text="🎥 Video Track 2" Foreground="White" Canvas.Left="10" Canvas.Top="125" FontWeight="Bold"/>
+
+                    <Rectangle Canvas.Left="0" Canvas.Top="180" Width="100" Height="40" Fill="#FF5D5D5D"/>
+                    <TextBlock Text="🔊 Audio Track 1" Foreground="White" Canvas.Left="10" Canvas.Top="195" FontWeight="Bold"/>
+
+                    <Rectangle Canvas.Left="0" Canvas.Top="230" Width="100" Height="40" Fill="#FF6D6D6D"/>
+                    <TextBlock Text="🔊 Audio Track 2" Foreground="White" Canvas.Left="10" Canvas.Top="245" FontWeight="Bold"/>
+
+                    <!-- Track Content Areas -->
+                    <Canvas x:Name="Track1Canvas" Canvas.Left="100" Canvas.Top="50" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" Height="50"/>
+                    <Canvas x:Name="Track2Canvas" Canvas.Left="100" Canvas.Top="120" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" Height="50"/>
+                    <Canvas x:Name="AudioTrack1Canvas" Canvas.Left="100" Canvas.Top="190" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" Height="30"/>
+                    <Canvas x:Name="AudioTrack2Canvas" Canvas.Left="100" Canvas.Top="240" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}" Height="30"/>
+
+                </Canvas>
+            </ScrollViewer>
+
+            <!-- Zoom -->
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="20">
+                <TextBlock Text="🔍 Zoom:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <Slider x:Name="ZoomSlider" Width="150" Height="25"
+                   Value="{Binding Timeline.TimelineScale}"/>
+                <TextBlock x:Name="ZoomLabel" Text="{Binding Timeline.TimelineScale, StringFormat={}{0:F1}x}"
+                      Margin="15,0" VerticalAlignment="Center"/>
             </StackPanel>
         </Grid>
 
-        <Border Grid.Column="2" BorderBrush="Gray" BorderThickness="1">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+        <!-- RIGHT: Properties -->
+        <Border Grid.Column="2" BorderBrush="Gray" BorderThickness="1" Margin="5">
+            <StackPanel Margin="15">
+                <TextBlock Text="⚙️ Properties" FontWeight="Bold" FontSize="16" Margin="0,0,0,20"/>
 
-                <StackPanel Grid.Row="1" Margin="10">
+                <TextBlock x:Name="SelectedClipLabel" Text="No clip selected"
+                      FontWeight="SemiBold" Margin="0,0,0,15"/>
 
-                    <TextBlock Text="{Binding SelectedMediaFile.FileName}" FontWeight="Bold"
-                       FontSize="14" Margin="0,0,0,15" TextWrapping="Wrap"
-                       HorizontalAlignment="Center"/>
+                <TextBlock Text="⏱️ Start:" Margin="0,0,0,5"/>
+                <Slider x:Name="ClipStartSlider" Height="25" Margin="0,0,0,15"/>
 
-                    <TextBlock Text="{Binding VideoDuration}" FontWeight="Bold" FontSize="18"
-                       Margin="0,0,0,20" HorizontalAlignment="Center" Foreground="SteelBlue"/>
+                <TextBlock Text="⏳ Duration:" Margin="0,0,0,5"/>
+                <Slider x:Name="ClipDurationSlider" Height="25" Margin="0,0,0,15"/>
 
-                    <Border BorderBrush="Gray" BorderThickness="2" CornerRadius="10" Margin="0,0,0,15">
-                        <Grid Height="60">
-                            <Rectangle Fill="#333" RadiusX="8" RadiusY="8"/>
-
-                            <Rectangle Fill="DodgerBlue" Opacity="0.7"
-                               Width="{Binding TrimmedWidth}"
-                               HorizontalAlignment="Left"
-                               Height="60" RadiusX="8" RadiusY="8"/>
-
-                            <TextBlock Text="{Binding TrimStartText}"
-                               HorizontalAlignment="Left" VerticalAlignment="Center"
-                               Margin="15,0" FontSize="14" FontWeight="Bold" Foreground="White"/>
-                            <TextBlock Text="{Binding TrimEndText}"
-                               HorizontalAlignment="Right" VerticalAlignment="Center"
-                               Margin="15,0" FontSize="14" FontWeight="Bold" Foreground="White"/>
-                            <TextBlock Text="{Binding TrimDuration}"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               FontSize="14" FontWeight="Bold" Foreground="Gold"/>
-                        </Grid>
-                    </Border>
-
-                    <StackPanel Margin="0,0,0,10">
-                        <TextBlock Text="⏮ Начало обрезки" FontWeight="Bold" FontSize="12"/>
-                        <Slider Value="{Binding TrimStart}"
-                        Minimum="0"
-                        Maximum="{Binding SelectedMediaFile.Duration}"
-                        Width="280" Height="35"
-                        Background="LightGray"
-                        Foreground="Orange"/>
-                        <TextBox Text="{Binding TrimStart, StringFormat={}{0:F1}}"
-                         Width="50" HorizontalAlignment="Center"/>
-                    </StackPanel>
-
-                    <StackPanel Margin="0,0,0,15">
-                        <TextBlock Text="⏭ Конец обрезки" FontWeight="Bold" FontSize="12"/>
-                        <Slider Value="{Binding TrimEnd}"
-                        Minimum="{Binding TrimStart}"
-                        Maximum="{Binding SelectedMediaFile.Duration}"
-                        Width="280" Height="35"
-                        Background="LightGray"
-                        Foreground="LimeGreen"/>
-                        <TextBox Text="{Binding TrimEnd, StringFormat={}{0:F1}}"
-                         Width="50" HorizontalAlignment="Center"/>
-                    </StackPanel>
-
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-                        <Button Content="Применить обрезку" Command="{Binding TrimClipCommand}"
-                        Background="DodgerBlue" Foreground="White" FontWeight="Bold"
-                        Margin="0,0,0,5" Padding="15,8"/>
-                        <Button Content="Добавить на Timeline" Command="{Binding AddToTimelineCommand}"
-                        Background="ForestGreen" Foreground="White" FontWeight="Bold"
-                        Padding="15,8"/>
-                    </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                    <CheckBox x:Name="MuteCheckBox" Content="🔇 Mute" Margin="0,0,15,0"/>
+                    <TextBlock Text="🔊 Volume:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <Slider x:Name="VolumeSlider" Width="120" Height="25"/>
                 </StackPanel>
 
-                <StackPanel Grid.Row="2" Margin="15" Orientation="Vertical">
-                    <Button Content="Экспорт видео" Command="{Binding ExportCommand}"
-                    Background="DarkRed" Foreground="White" FontWeight="Bold" FontSize="14"
-                    Padding="20,12" Margin="0,0,0,10"/>
-                    <ProgressBar Value="{Binding ExportProgress}" Height="25"/>
-                    <TextBlock Text="{Binding ExportStatus}" TextWrapping="Wrap"
-                       Margin="0,5" FontSize="12" TextAlignment="Center"/>
-                </StackPanel>
-            </Grid>
+                <Button x:Name="ExportButton" Command="{Binding ExportCommand}" Content="💾 Export Video"
+                   Height="50" Background="DodgerBlue" Foreground="White"
+                   FontWeight="Bold" FontSize="14"/>
+            </StackPanel>
         </Border>
     </Grid>
 </Window>
