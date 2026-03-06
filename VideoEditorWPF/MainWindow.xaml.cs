@@ -1,8 +1,10 @@
-﻿using System.Collections.Specialized;
+﻿using System;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Shapes;
 using VideoEditorWPF.Factories;
 using VideoEditorWPF.Models;
@@ -226,6 +228,76 @@ namespace VideoEditorWPF
             {
                 ViewModel.Timeline.SelectedTrack = track;
                 e.Handled = true;
+            }
+        }
+
+        private void TrackHeadersScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            if (e.VerticalChange != 0)
+            {
+                TimelineScrollViewer.ScrollToVerticalOffset(e.VerticalOffset);
+            }
+        }
+
+        private void TimelineScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            if (e.VerticalChange != 0)
+            {
+                TrackHeadersScrollViewer.ScrollToVerticalOffset(e.VerticalOffset);
+            }
+
+            if (e.HorizontalChange != 0)
+            {
+                RenderTimeRuler();
+            }
+        }
+
+        private void RenderTimeRuler()
+        {
+            TimeRulerCanvas.Children.Clear();
+
+            if (ViewModel?.Timeline == null) return;
+
+            double scale = ViewModel.Timeline.TimelineScale;
+            double offset = TimelineScrollViewer.HorizontalOffset;
+            double viewportWidth = TimelineScrollViewer.ViewportWidth;
+
+            double startTime = offset / scale;
+            double endTime = (offset + viewportWidth) / scale;
+
+            int interval = scale < 5 ? 10 : (scale < 20 ? 5 : (scale < 50 ? 2 : 1));
+
+            int startMark = (int)Math.Floor(startTime / interval) * interval;
+
+            for (int time = startMark; time <= endTime + interval; time += interval)
+            {
+                double x = (time * scale) - offset;
+
+                if (x >= 0 && x <= viewportWidth)
+                {
+                    var line = new Line
+                    {
+                        X1 = x,
+                        Y1 = 20,
+                        X2 = x,
+                        Y2 = 35,
+                        Stroke = new SolidColorBrush(Color.FromRgb(100, 100, 100)),
+                        StrokeThickness = 1
+                    };
+                    TimeRulerCanvas.Children.Add(line);
+
+                    int minutes = time / 60;
+                    int seconds = time % 60;
+                    var label = new TextBlock
+                    {
+                        Text = $"{minutes:D2}:{seconds:D2}",
+                        Foreground = Brushes.LightGray,
+                        FontSize = 9
+                    };
+                    Canvas.SetLeft(label, x + 2);
+                    Canvas.SetTop(label, 2);
+                    TimeRulerCanvas.Children.Add(label);
+                }
             }
         }
     }

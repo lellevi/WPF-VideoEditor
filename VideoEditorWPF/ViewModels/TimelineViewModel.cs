@@ -174,6 +174,7 @@ namespace VideoEditorWPF.ViewModels
             {
                 Tracks[i].TrackIndex = i;
             }
+            OnPropertyChanged(nameof(CalculatedHeight));
         }
 
         public void AddClipToTrack(MediaFile mediaFile)
@@ -242,5 +243,7 @@ namespace VideoEditorWPF.ViewModels
             clip.StartX = newStartX;
             clip.StartTimeSeconds = newStartX / TimelineScale;
         }
+
+        public double CalculatedHeight => Tracks.Count * 70; // 70px per track
     }
 }
