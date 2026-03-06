@@ -219,5 +219,14 @@ namespace VideoEditorWPF
                 e.Handled = true;
             }
         }
+
+        private void TrackHeader_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is Border border && border.Tag is Track track)
+            {
+                ViewModel.Timeline.SelectedTrack = track;
+                e.Handled = true;
+            }
+        }
     }
 }

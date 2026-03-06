@@ -57,7 +57,7 @@ namespace VideoEditorWPF.Services
 
         private void DrawTrackHeader(Canvas canvas, Track track, double y, double viewportWidth)
         {
-            Color headerColor = track.Type == TrackType.Video
+            Color headerColor = track.Type == MediaType.Video
                 ? Color.FromRgb(45, 45, 80)
                 : Color.FromRgb(45, 65, 45);
 
@@ -74,10 +74,10 @@ namespace VideoEditorWPF.Services
             Canvas.SetZIndex(headerBg, 0);
             canvas.Children.Add(headerBg);
 
-            string trackTypeIcon = track.Type == TrackType.Video ? "🎬" : "🎵";
+            string trackTypeIcon = track.Type == MediaType.Video ? "🎬" : "🎵";
             var label = new TextBlock
             {
-                Text = $"{trackTypeIcon} {track.Name ?? (track.Type == TrackType.Video ? "Video" : "Audio")}",
+                Text = $"{trackTypeIcon} {track.Name ?? (track.Type == MediaType.Video ? "Video" : "Audio")}",
                 Foreground = Brushes.White,
                 FontSize = 12,
                 FontWeight = FontWeights.Bold
