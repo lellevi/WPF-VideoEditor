@@ -207,7 +207,7 @@
 
                     <!-- Track Control Buttons (Top Left) -->
                     <Border Grid.Row="0" Grid.Column="0" Background="#FF252526" BorderBrush="#FF3E3E42" BorderThickness="0,0,1,1">
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,4,0,0">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                             <Button Command="{Binding Timeline.AddVideoTrackCommand}"
                                     Style="{StaticResource AddVideoTrackButtonStyle}"
                                     Content="🎥➕" Width="34" Height="28" Margin="2,0"
@@ -225,11 +225,21 @@
 
                     <!-- Time Ruler (Top Right) -->
                     <Border Grid.Row="0" Grid.Column="1" Background="#FF252526" BorderBrush="#FF3E3E42" BorderThickness="0,0,0,1">
-                        <ScrollViewer x:Name="TimeRulerScrollViewer"
-                                      HorizontalScrollBarVisibility="Hidden"
-                                      VerticalScrollBarVisibility="Disabled">
-                            <Canvas x:Name="TimeRulerCanvas" Width="4000" Height="35" Background="Transparent"/>
-                        </ScrollViewer>
+                        <Grid>
+                            <ScrollViewer x:Name="TimeRulerScrollViewer"
+                                          HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollBarVisibility="Disabled">
+                                <Canvas x:Name="TimeRulerCanvas" Width="4000" Height="35" Background="Transparent">
+                                    <!-- Ruler Playhead -->
+                                    <Rectangle x:Name="RulerPlayhead"
+                                               Width="3"
+                                               Height="35"
+                                               Fill="Red"
+                                               Canvas.Left="{Binding Timeline.PlayheadPosition}"
+                                               Panel.ZIndex="1000"/>
+                                </Canvas>
+                            </ScrollViewer>
+                        </Grid>
                     </Border>
 
                     <!-- Track Headers (Bottom Left) -->
@@ -237,8 +247,9 @@
                         <ScrollViewer x:Name="TrackHeadersScrollViewer"
                                       VerticalScrollBarVisibility="Hidden"
                                       HorizontalScrollBarVisibility="Disabled"
+                                      VerticalAlignment="Top"
                                       ScrollChanged="TrackHeadersScrollViewer_ScrollChanged">
-                            <ItemsControl ItemsSource="{Binding Timeline.Tracks}">
+                            <ItemsControl ItemsSource="{Binding Timeline.Tracks}" VerticalAlignment="Top">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Border Style="{StaticResource TrackHeaderStyle}"
@@ -309,11 +320,13 @@
                                   x:Name="TimelineScrollViewer"
                                   HorizontalScrollBarVisibility="Auto"
                                   VerticalScrollBarVisibility="Auto"
+                                  VerticalAlignment="Top"
                                   Background="#FF1E1E1E"
                                   ScrollChanged="TimelineScrollViewer_ScrollChanged">
                         <Canvas x:Name="TimelineCanvas"
                                 Width="4000"
                                 Height="{Binding Timeline.CalculatedHeight}"
+                                VerticalAlignment="Top"
                                 Background="#FF2D2D2D"
                                 MouseLeftButtonDown="TimelineCanvas_MouseLeftButtonDown"
                                 MouseMove="TimelineCanvas_MouseMove"

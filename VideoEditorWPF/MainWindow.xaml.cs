@@ -59,6 +59,7 @@ namespace VideoEditorWPF
             }
 
             ViewModel.Timeline.TimelineScaleChanged += TimelineScaleChanged_Handler;
+            ViewModel.Timeline.PropertyChanged += Timeline_PropertyChanged;
 
             Loaded += Window_Loaded;
             Closing += Window_Closing;
@@ -80,9 +81,29 @@ namespace VideoEditorWPF
             }
 
             ViewModel.Timeline.TimelineScaleChanged -= TimelineScaleChanged_Handler;
+            ViewModel.Timeline.PropertyChanged -= Timeline_PropertyChanged;
 
             Loaded -= Window_Loaded;
             Closing -= Window_Closing;
+        }
+
+        private void Timeline_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(ViewModel.Timeline.PlayheadPosition))
+            {
+                UpdateRulerPlayhead();
+            }
+        }
+
+        private void UpdateRulerPlayhead()
+        {
+            var playhead = TimeRulerCanvas.Children.OfType<Rectangle>()
+                .FirstOrDefault(r => r.Name == "RulerPlayhead");
+
+            if (playhead != null)
+            {
+                Canvas.SetLeft(playhead, ViewModel.Timeline.PlayheadPosition);
+            }
         }
 
         private void TimelineScaleChanged_Handler(object sender, System.EventArgs e)
@@ -116,6 +137,15 @@ namespace VideoEditorWPF
             RefreshTracks();
         }
 
+        private void TrackHeader_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is Border border && border.Tag is Track track)
+            {
+                ViewModel.Timeline.SelectedTrack = track;
+                e.Handled = true;
+            }
+        }
+
         private void MediaLibraryList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             if (MediaLibraryList.SelectedItem is MediaFile mediaFile)
@@ -126,8 +156,21 @@ namespace VideoEditorWPF
 
         private void RefreshTimeline()
         {
-            _timelineRenderService.ClearTimeline(TimelineCanvas);
-            _timelineRenderService.RenderTimeline(TimelineCanvas, ViewModel.Timeline.TimelineScale, TimelineScrollViewer.ViewportWidth);
+            TimeRulerCanvas.Children.Clear();
+            _timelineRenderService.RenderTimeline(TimeRulerCanvas, ViewModel.Timeline.TimelineScale, TimelineScrollViewer.ViewportWidth);
+
+            // Add playhead to ruler after rendering
+            var rulerPlayhead = new Rectangle
+            {
+                Width = 3,
+                Height = 35,
+                Fill = new SolidColorBrush(Colors.Red),
+                Name = "RulerPlayhead"
+            };
+            Canvas.SetLeft(rulerPlayhead, ViewModel.Timeline.PlayheadPosition);
+            Canvas.SetZIndex(rulerPlayhead, 1000);
+            TimeRulerCanvas.Children.Add(rulerPlayhead);
+
             RefreshTracks();
         }
 
@@ -169,7 +212,7 @@ namespace VideoEditorWPF
                 var currentPos = e.GetPosition(TimelineCanvas);
                 var deltaX = currentPos.X - _lastMousePos.X;
 
-                double newStartX = System.Math.Max(0, _draggedClip.StartX + deltaX);
+                double newStartX = Math.Max(0, _draggedClip.StartX + deltaX);
                 ViewModel.Timeline.UpdateClipTimePosition(_draggedClip, newStartX);
 
                 if (_draggedVisual != null)
@@ -222,15 +265,6 @@ namespace VideoEditorWPF
             }
         }
 
-        private void TrackHeader_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            if (sender is Border border && border.Tag is Track track)
-            {
-                ViewModel.Timeline.SelectedTrack = track;
-                e.Handled = true;
-            }
-        }
-
         private void TrackHeadersScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
             if (e.VerticalChange != 0)
@@ -248,56 +282,7 @@ namespace VideoEditorWPF
 
             if (e.HorizontalChange != 0)
             {
-                RenderTimeRuler();
-            }
-        }
-
-        private void RenderTimeRuler()
-        {
-            TimeRulerCanvas.Children.Clear();
-
-            if (ViewModel?.Timeline == null) return;
-
-            double scale = ViewModel.Timeline.TimelineScale;
-            double offset = TimelineScrollViewer.HorizontalOffset;
-            double viewportWidth = TimelineScrollViewer.ViewportWidth;
-
-            double startTime = offset / scale;
-            double endTime = (offset + viewportWidth) / scale;
-
-            int interval = scale < 5 ? 10 : (scale < 20 ? 5 : (scale < 50 ? 2 : 1));
-
-            int startMark = (int)Math.Floor(startTime / interval) * interval;
-
-            for (int time = startMark; time <= endTime + interval; time += interval)
-            {
-                double x = (time * scale) - offset;
-
-                if (x >= 0 && x <= viewportWidth)
-                {
-                    var line = new Line
-                    {
-                        X1 = x,
-                        Y1 = 20,
-                        X2 = x,
-                        Y2 = 35,
-                        Stroke = new SolidColorBrush(Color.FromRgb(100, 100, 100)),
-                        StrokeThickness = 1
-                    };
-                    TimeRulerCanvas.Children.Add(line);
-
-                    int minutes = time / 60;
-                    int seconds = time % 60;
-                    var label = new TextBlock
-                    {
-                        Text = $"{minutes:D2}:{seconds:D2}",
-                        Foreground = Brushes.LightGray,
-                        FontSize = 9
-                    };
-                    Canvas.SetLeft(label, x + 2);
-                    Canvas.SetTop(label, 2);
-                    TimeRulerCanvas.Children.Add(label);
-                }
+                TimeRulerScrollViewer.ScrollToHorizontalOffset(e.HorizontalOffset);
             }
         }
     }
