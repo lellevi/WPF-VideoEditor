@@ -5,6 +5,7 @@ using System.Windows.Input;
 using VideoEditorWPF.Commands;
 using VideoEditorWPF.Factories;
 using VideoEditorWPF.Models;
+using System.Windows;
 
 namespace VideoEditorWPF.ViewModels
 {
@@ -91,6 +92,7 @@ namespace VideoEditorWPF.ViewModels
         public ICommand AddVideoTrackCommand { get; }
         public ICommand AddAudioTrackCommand { get; }
         public ICommand DeleteSelectedTrackCommand { get; }
+        public ICommand ResetPlayheadCommand { get; } // Add this
 
         public event EventHandler TimelineScaleChanged;
 
@@ -104,6 +106,7 @@ namespace VideoEditorWPF.ViewModels
             AddVideoTrackCommand = new RelayCommand(_ => AddTrack(MediaType.Video));
             AddAudioTrackCommand = new RelayCommand(_ => AddTrack(MediaType.Audio));
             DeleteSelectedTrackCommand = new RelayCommand(_ => DeleteSelectedTrack());
+            ResetPlayheadCommand = new RelayCommand(_ => ResetPlayhead());
 
             Tracks.CollectionChanged += (s, e) => CommandManager.InvalidateRequerySuggested();
         }
@@ -156,6 +159,7 @@ namespace VideoEditorWPF.ViewModels
 
         private void DeleteSelectedTrack()
         {
+            // Validation checks inline
             if (SelectedTrack == null || SelectedTrack.IsDefault)
                 return;
 
@@ -163,9 +167,19 @@ namespace VideoEditorWPF.ViewModels
             if (tracksOfType <= 1)
                 return;
 
-            Tracks.Remove(SelectedTrack);
-            SelectedTrack = null;
-            ReindexTracks();
+            // Ask for confirmation
+            var result = MessageBox.Show(
+                $"Are you sure you want to delete track '{SelectedTrack.Name}'?",
+                "Delete Track",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                Tracks.Remove(SelectedTrack);
+                SelectedTrack = null;
+                ReindexTracks();
+            }
         }
 
         private void ReindexTracks()
@@ -245,5 +259,10 @@ namespace VideoEditorWPF.ViewModels
         }
 
         public double CalculatedHeight => Tracks.Count * 70; // 70px per track
+
+        private void ResetPlayhead()
+        {
+            PlayheadPosition = 0;
+        }
     }
 }

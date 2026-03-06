@@ -75,7 +75,7 @@ namespace VideoEditorWPF.Models
 
         public bool CanDelete => !IsDefault;
 
-        public double TopPosition => 40 + (TrackIndex * 70);
+        public double TopPosition => TrackIndex * 70;
 
         public Track()
         {

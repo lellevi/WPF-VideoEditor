@@ -178,6 +178,39 @@ namespace VideoEditorWPF
         {
             _trackRenderService.ClearTracks(TimelineCanvas);
             _trackRenderService.RenderTracks(TimelineCanvas, ViewModel.Timeline.Tracks, TimelineScrollViewer.ViewportWidth);
+            DrawTrackSeparators();
+        }
+
+        private void DrawTrackSeparators()
+        {
+            // Remove old separator lines
+            var oldLines = TimelineCanvas.Children.OfType<Line>()
+                .Where(l => l.Tag?.ToString() == "TrackSeparator")
+                .ToList();
+            foreach (var line in oldLines)
+            {
+                TimelineCanvas.Children.Remove(line);
+            }
+
+            // Draw horizontal separator lines between tracks
+            for (int i = 0; i < ViewModel.Timeline.Tracks.Count; i++)
+            {
+                double y = (i + 1) * 70; // Bottom edge of each track
+
+                var line = new Line
+                {
+                    X1 = 0,
+                    Y1 = y,
+                    X2 = 4000,
+                    Y2 = y,
+                    Stroke = new SolidColorBrush(Color.FromRgb(62, 62, 66)), // #FF3E3E42
+                    StrokeThickness = 1,
+                    Tag = "TrackSeparator"
+                };
+
+                Canvas.SetZIndex(line, -1); // Behind clips
+                TimelineCanvas.Children.Add(line);
+            }
         }
 
         private void TimelineCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
