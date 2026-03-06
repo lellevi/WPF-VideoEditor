@@ -233,24 +233,22 @@
                         </ScrollViewer>
                     </Border>
 
-                    <!-- Track Headers (Bottom Left) - PERFECT ALIGNMENT -->
+                    <!-- Track Headers (Bottom Left) -->
                     <Border Grid.Row="1" Grid.Column="0" Background="#FF2D2D2D" BorderBrush="#FF3E3E42" BorderThickness="0,0,1,0">
                         <ScrollViewer x:Name="TrackHeadersScrollViewer"
                                       VerticalScrollBarVisibility="Hidden"
                                       HorizontalScrollBarVisibility="Disabled"
-                                      VerticalAlignment="Top"
                                       ScrollChanged="TrackHeadersScrollViewer_ScrollChanged">
-                            <ItemsControl ItemsSource="{Binding Timeline.Tracks}" VerticalAlignment="Top">
+                            <ItemsControl ItemsSource="{Binding Timeline.Tracks}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <StackPanel VerticalAlignment="Top"/>
+                                        <StackPanel/>
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Grid Height="70">
-                                            <!-- Colored Background -->
-                                            <Border BorderThickness="0">
+                                            <Border>
                                                 <Border.Style>
                                                     <Style TargetType="Border">
                                                         <Setter Property="Background" Value="#FF2A4A5A"/>
@@ -276,9 +274,8 @@
                                                     </Style>
                                                 </Border.Style>
 
-                                                <StackPanel Margin="8,6" VerticalAlignment="Top">
-                                                    <!-- Track Name -->
-                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                                <StackPanel Margin="8,6">
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                                                         <TextBlock FontSize="11" Foreground="White">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="TextBlock">
@@ -291,50 +288,24 @@
                                                                 </Style>
                                                             </TextBlock.Style>
                                                         </TextBlock>
-                                                        <TextBlock Text="{Binding Name}"
-                                                                   Foreground="White"
-                                                                   FontWeight="Bold"
-                                                                   FontSize="11"/>
-                                                        <TextBlock Text=" • DEF"
-                                                                   Foreground="LightBlue"
-                                                                   FontSize="9"
-                                                                   Margin="4,1,0,0"
-                                                                   Style="{StaticResource DefaultBadgeStyle}"/>
+                                                        <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" FontSize="11"/>
+                                                        <TextBlock Text=" • DEF" Foreground="LightBlue" FontSize="9" Margin="4,1,0,0" Style="{StaticResource DefaultBadgeStyle}"/>
                                                     </StackPanel>
 
-                                                    <!-- Mute/Lock Buttons -->
                                                     <StackPanel Orientation="Horizontal">
-                                                        <ToggleButton Content="🔇"
-                                                                      Style="{StaticResource TrackToggleButtonStyle}"
-                                                                      IsChecked="{Binding IsMuted}"
-                                                                      Width="26" Height="22"
-                                                                      Margin="0,0,2,0"
-                                                                      FontSize="10"
-                                                                      ToolTip="Mute track"/>
-                                                        <ToggleButton Content="🔒"
-                                                                      Style="{StaticResource TrackToggleButtonStyle}"
-                                                                      IsChecked="{Binding IsLocked}"
-                                                                      Width="26" Height="22"
-                                                                      Margin="2,0,0,0"
-                                                                      FontSize="10"
-                                                                      ToolTip="Lock track"/>
+                                                        <ToggleButton Content="🔇" Style="{StaticResource TrackToggleButtonStyle}"
+                                                                      IsChecked="{Binding IsMuted}" Width="26" Height="22"
+                                                                      Margin="0,0,2,0" FontSize="10" ToolTip="Mute track"/>
+                                                        <ToggleButton Content="🔒" Style="{StaticResource TrackToggleButtonStyle}"
+                                                                      IsChecked="{Binding IsLocked}" Width="26" Height="22"
+                                                                      Margin="2,0,0,0" FontSize="10" ToolTip="Lock track"/>
                                                     </StackPanel>
                                                 </StackPanel>
                                             </Border>
 
-                                            <!-- Separator Line at Bottom -->
-                                            <Rectangle Height="1"
-                                                       VerticalAlignment="Bottom"
-                                                       Fill="#FF3E3E42"
-                                                       MouseLeftButtonDown="TrackHeader_MouseLeftButtonDown"
-                                                       Tag="{Binding}"
-                                                       Cursor="Hand"/>
-
-                                            <!-- Invisible hit test layer for clicking -->
-                                            <Border Background="Transparent"
-                                                    MouseLeftButtonDown="TrackHeader_MouseLeftButtonDown"
-                                                    Tag="{Binding}"
-                                                    Cursor="Hand"/>
+                                            <Rectangle Height="1" VerticalAlignment="Bottom" Fill="#FF3E3E42"/>
+                                            <Border Background="Transparent" Cursor="Hand"
+                                                    MouseLeftButtonDown="TrackHeader_MouseLeftButtonDown" Tag="{Binding}"/>
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -353,6 +324,7 @@
                         <Canvas x:Name="TimelineCanvas"
                                 Width="4000"
                                 Height="{Binding Timeline.CalculatedHeight}"
+                                VerticalAlignment="Top"
                                 Background="#FF2D2D2D"
                                 MouseLeftButtonDown="TimelineCanvas_MouseLeftButtonDown"
                                 MouseMove="TimelineCanvas_MouseMove"
@@ -360,12 +332,8 @@
                                 MouseWheel="TimelineCanvas_MouseWheel">
 
                             <!-- Playhead -->
-                            <Rectangle x:Name="Playhead"
-                                       Width="3"
-                                       Height="{Binding Timeline.CalculatedHeight}"
-                                       Fill="Red"
-                                       Canvas.Left="{Binding Timeline.PlayheadPosition}"
-                                       Panel.ZIndex="999"/>
+                            <Rectangle x:Name="Playhead" Width="3" Height="{Binding Timeline.CalculatedHeight}"
+                                       Fill="Red" Canvas.Left="{Binding Timeline.PlayheadPosition}" Panel.ZIndex="999"/>
                         </Canvas>
                     </ScrollViewer>
                 </Grid>
