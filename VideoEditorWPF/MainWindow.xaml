@@ -175,9 +175,15 @@
 
             <!-- Preview -->
             <Border Grid.Row="0" BorderBrush="Gray" BorderThickness="1">
-                <MediaElement x:Name="PreviewMediaElement"
-                         LoadedBehavior="Manual" UnloadedBehavior="Stop"
-                         Stretch="Uniform"/>
+                <Grid>
+                    <!-- MediaElement (оставляем без изменений) -->
+                    <MediaElement x:Name="PreviewMediaElement"
+                             LoadedBehavior="Manual" UnloadedBehavior="Stop"
+                             Stretch="Uniform"/>
+
+                    <!-- Image для рендеринга поверх MediaElement -->
+                    <Image x:Name="PreviewCanvas" Stretch="Uniform"/>
+                </Grid>
             </Border>
 
             <!-- Transport Controls -->

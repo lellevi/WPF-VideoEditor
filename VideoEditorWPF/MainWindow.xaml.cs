@@ -18,6 +18,7 @@ namespace VideoEditorWPF
         private MainViewModel ViewModel => (MainViewModel)DataContext;
         private ITimelineRenderService _timelineRenderService;
         private ITrackRenderService _trackRenderService;
+        private IPreviewRenderService _previewRenderService;
 
         private Point _lastMousePos;
         private Clip _draggedClip;
@@ -45,8 +46,31 @@ namespace VideoEditorWPF
             _trackRenderService = new TrackRenderService(clipRenderService);
             _timelineRenderService = new TimelineRenderService();
 
+            // Инициализация PreviewRenderService
+            _previewRenderService = new PreviewRenderService();
+            PreviewCanvas.Source = _previewRenderService.InitializePreview();
+
             DataContext = mainViewModel;
             SetupEventHandlers();
+            SetupPreviewIntegration();
+        }
+
+        private void SetupPreviewIntegration()
+        {
+            // Подписываемся на событие запроса кадра
+            ViewModel.Preview.PreviewFrameNeeded += OnPreviewFrameNeeded;
+
+            // Устанавливаем FPS
+            _previewRenderService.SetPreviewFPS(ViewModel.Preview.PreviewFPS);
+        }
+
+        private void OnPreviewFrameNeeded(TimeSpan time)
+        {
+            // Обновляем превью для текущего времени
+            if (PreviewCanvas.Source is System.Windows.Media.Imaging.WriteableBitmap bitmap)
+            {
+                _previewRenderService.UpdatePreview(bitmap, time, ViewModel.Timeline.Tracks);
+            }
         }
 
         private void SetupEventHandlers()
