@@ -183,14 +183,30 @@
             <!-- Transport Controls -->
             <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="20">
                 <Button Command="{Binding Timeline.ResetPlayheadCommand}" Content="⏮|" Width="45" Height="35" Margin="5" ToolTip="Reset to Start (00:00)"/>
-                <Button Command="{Binding PreviousFrameCommand}" Content="⏮" Width="45" Height="35" Margin="5"/>
-                <Button x:Name="PlayPauseBtn" Command="{Binding PlayPauseCommand}" Content="⏸" Width="45" Height="35" Margin="5"/>
-                <Button Command="{Binding NextFrameCommand}" Content="⏭" Width="45" Height="35" Margin="5"/>
-                <TextBlock x:Name="CurrentTimeLabel" Text="00:00:00"
-                      Margin="25,0 15,0" VerticalAlignment="Center" FontWeight="Bold"/>
+                <Button Command="{Binding Preview.PreviousFrameCommand}" Content="⏮" Width="45" Height="35" Margin="5"/>
+                <Button x:Name="PlayPauseBtn" Command="{Binding Preview.PlayPauseCommand}" Width="45" Height="35" Margin="5">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Content" Value="▶"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Preview.IsPlaying}" Value="True">
+                                    <Setter Property="Content" Value="⏸"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+                <Button Command="{Binding Preview.NextFrameCommand}" Content="⏭" Width="45" Height="35" Margin="5"/>
+                <TextBlock x:Name="CurrentTimeLabel" 
+                      Text="{Binding Preview.CurrentTime, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
+                      Margin="25,0,15,0" VerticalAlignment="Center" FontWeight="Bold"/>
                 <Slider x:Name="TimelineSlider" Width="250" Height="25" Margin="10,0"
-                    Value="{Binding Timeline.PlayheadPosition}"/>
-                <TextBlock x:Name="TotalTimeLabel" Text="00:00:00" Margin="10,0" VerticalAlignment="Center"/>
+                    Minimum="0" 
+                    Maximum="{Binding Preview.TotalDuration.TotalSeconds}"
+                    Value="{Binding Preview.CurrentTimeSeconds, Mode=TwoWay}"/>
+                <TextBlock x:Name="TotalTimeLabel" 
+                      Text="{Binding Preview.TotalDuration, StringFormat={}{0:hh\\:mm\\:ss}}" 
+                      Margin="10,0" VerticalAlignment="Center"/>
             </StackPanel>
 
             <!-- Timeline with Track Management -->

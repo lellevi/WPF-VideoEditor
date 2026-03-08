@@ -38,7 +38,8 @@ namespace VideoEditorWPF
             IClipFactory clipFactory = new ClipFactory();
 
             var timelineViewModel = new TimelineViewModel(clipFactory);
-            var mainViewModel = new MainViewModel(mediaService, dialogService, timelineService, timelineViewModel);
+            var previewViewModel = new PreviewViewModel(timelineViewModel);
+            var mainViewModel = new MainViewModel(mediaService, dialogService, timelineService, timelineViewModel, previewViewModel);
 
             IClipRenderService clipRenderService = new ClipRenderService();
             _trackRenderService = new TrackRenderService(clipRenderService);
