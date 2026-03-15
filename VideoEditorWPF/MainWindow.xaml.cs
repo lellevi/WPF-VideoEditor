@@ -514,7 +514,7 @@ namespace VideoEditorWPF
                     StrokeThickness = 2,
                     StrokeDashArray = new DoubleCollection { 4, 2 }
                 };
-                Canvas.SetZIndex(_snapIndicatorLine, 998); // Just below playhead
+                Canvas.SetZIndex(_snapIndicatorLine, 1001); // Above playhead (999)
                 TimelineCanvas.Children.Add(_snapIndicatorLine);
             }
 
@@ -543,7 +543,7 @@ namespace VideoEditorWPF
                     BorderBrush = new SolidColorBrush(Color.FromRgb(218, 165, 32)), // GoldenRod
                     BorderThickness = new Thickness(1)
                 };
-                Canvas.SetZIndex(_snapIndicatorBorder, 999);
+                Canvas.SetZIndex(_snapIndicatorBorder, 1002); // Above snap line
                 TimelineCanvas.Children.Add(_snapIndicatorBorder);
             }
 
