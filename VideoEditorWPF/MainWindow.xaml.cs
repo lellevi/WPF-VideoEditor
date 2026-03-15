@@ -259,8 +259,12 @@ namespace VideoEditorWPF
                 hitClip = LogicalTreeHelper.GetParent(hitClip);
             }
 
-            Canvas.SetLeft(Playhead, _lastMousePos.X);
-            ViewModel.Timeline.PlayheadPosition = _lastMousePos.X;
+            // Moving playhead - apply snapping if Shift is pressed
+            bool isShiftPressed = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
+            double playheadPosition = SnapToGrid(_lastMousePos.X, isShiftPressed);
+
+            Canvas.SetLeft(Playhead, playheadPosition);
+            ViewModel.Timeline.PlayheadPosition = playheadPosition;
         }
 
         private void TimelineCanvas_MouseMove(object sender, MouseEventArgs e)
@@ -268,6 +272,7 @@ namespace VideoEditorWPF
             if (e.LeftButton == MouseButtonState.Pressed && _draggedClip != null && TimelineCanvas.IsMouseCaptured)
             {
                 var currentPos = e.GetPosition(TimelineCanvas);
+                bool isShiftPressed = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
 
                 // Get current visual X position from the actual rendered rectangle
                 double visualStartX = _draggedVisual != null
@@ -279,6 +284,9 @@ namespace VideoEditorWPF
 
                 // Apply delta to visual position
                 double newStartX = Math.Max(0, visualStartX + deltaX);
+
+                // Snap to 0.5s grid if Shift is pressed
+                newStartX = SnapToGrid(newStartX, isShiftPressed);
 
                 // Update model (converts pixels to time using current scale)
                 ViewModel.Timeline.UpdateClipTimePosition(_draggedClip, newStartX);
@@ -358,10 +366,34 @@ namespace VideoEditorWPF
         private void TimeRulerCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             var clickPosition = e.GetPosition(TimeRulerCanvas);
+            bool isShiftPressed = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
 
-            ViewModel.Timeline.PlayheadPosition = clickPosition.X;
+            // Snap to 0.5s grid if Shift is pressed
+            double playheadPosition = SnapToGrid(clickPosition.X, isShiftPressed);
+
+            ViewModel.Timeline.PlayheadPosition = playheadPosition;
 
             e.Handled = true;
+        }
+        /// <summary>
+        /// Snaps a pixel position to the nearest 0.5-second interval when Shift is pressed
+        /// </summary>
+        private double SnapToGrid(double pixelPosition, bool isShiftPressed)
+        {
+            if (!isShiftPressed)
+                return pixelPosition;
+
+            const double snapInterval = 0.5; // 0.5 seconds
+            double timelineScale = ViewModel.Timeline.TimelineScale;
+
+            // Convert pixels to seconds
+            double timeInSeconds = pixelPosition / timelineScale;
+
+            // Round to nearest 0.5 second interval
+            double snappedSeconds = Math.Round(timeInSeconds / snapInterval) * snapInterval;
+
+            // Convert back to pixels
+            return snappedSeconds * timelineScale;
         }
     }
 }
