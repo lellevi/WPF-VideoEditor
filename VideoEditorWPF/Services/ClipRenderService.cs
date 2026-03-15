@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
@@ -15,6 +14,8 @@ namespace VideoEditorWPF.Services
 
     public class ClipRenderService : IClipRenderService
     {
+        private const double TrackHeight = 70;
+
         public void RenderClips(Canvas canvas, IEnumerable<Clip> clips, double trackTop, double timelineScale)
         {
             foreach (var clip in clips)
@@ -30,7 +31,7 @@ namespace VideoEditorWPF.Services
             var rect = new Rectangle
             {
                 Width = clip.GetWidth(timelineScale),
-                Height = 40,
+                Height = TrackHeight,
                 Fill = color,
                 RadiusX = 5,
                 RadiusY = 5,
@@ -54,7 +55,7 @@ namespace VideoEditorWPF.Services
             };
 
             Canvas.SetLeft(label, clip.GetOffsetPixels(timelineScale) + 5);
-            Canvas.SetTop(label, top + 15);
+            Canvas.SetTop(label, top + (TrackHeight / 2) - 5); // Center vertically
             Canvas.SetZIndex(label, 11);
             canvas.Children.Add(label);
         }

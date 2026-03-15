@@ -16,9 +16,7 @@ namespace VideoEditorWPF.Services
 
     public class TrackRenderService : ITrackRenderService
     {
-        private const double TRACK_HEADER_HEIGHT = 25;
-        private const double TRACK_HEIGHT = 50;
-        private const double TRACK_GAP = 5;
+        private const double TRACK_HEIGHT = 70; // Match MainWindow.xaml track height
 
         private readonly IClipRenderService _clipRenderService;
 
@@ -29,13 +27,13 @@ namespace VideoEditorWPF.Services
 
         public void RenderTracks(Canvas canvas, IEnumerable<Track> tracks, double canvasWidth, double timelineScale)
         {
-            double currentY = TRACK_HEADER_HEIGHT + TRACK_GAP;
-
+            int trackIndex = 0;
             foreach (var track in tracks)
             {
-                DrawTrackBackground(canvas, currentY, canvasWidth);
-                _clipRenderService.RenderClips(canvas, track.Clips, currentY, timelineScale);
-                currentY += TRACK_HEIGHT + TRACK_GAP;
+                double trackY = trackIndex * TRACK_HEIGHT;
+                DrawTrackBackground(canvas, trackY, canvasWidth);
+                _clipRenderService.RenderClips(canvas, track.Clips, trackY, timelineScale);
+                trackIndex++;
             }
         }
 
@@ -45,7 +43,7 @@ namespace VideoEditorWPF.Services
                 .Where(e =>
                 {
                     double top = Canvas.GetTop(e);
-                    return !double.IsNaN(top) && top >= TRACK_HEADER_HEIGHT;
+                    return !double.IsNaN(top) && top >= 0;
                 })
                 .ToList();
 
