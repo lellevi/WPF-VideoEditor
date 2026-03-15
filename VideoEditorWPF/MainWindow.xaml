@@ -8,119 +8,12 @@
         Title="Video Editor WPF" Height="800" Width="1400">
 
     <Window.Resources>
-        <Style x:Key="TrackHeaderStyle" TargetType="Border">
-            <Setter Property="BorderBrush" Value="#FF3E3E42"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Background" Value="#FF2D2D2D"/>
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding Type}" Value="Video">
-                    <Setter Property="Background" Value="#FF2A4A5A"/>
-                </DataTrigger>
-                <DataTrigger Binding="{Binding Type}" Value="Audio">
-                    <Setter Property="Background" Value="#FF4A3A2A"/>
-                </DataTrigger>
-                <MultiDataTrigger>
-                    <MultiDataTrigger.Conditions>
-                        <Condition Binding="{Binding IsSelected}" Value="True"/>
-                        <Condition Binding="{Binding Type}" Value="Video"/>
-                    </MultiDataTrigger.Conditions>
-                    <Setter Property="Background" Value="#FF3A6A7A"/>
-                </MultiDataTrigger>
-                <MultiDataTrigger>
-                    <MultiDataTrigger.Conditions>
-                        <Condition Binding="{Binding IsSelected}" Value="True"/>
-                        <Condition Binding="{Binding Type}" Value="Audio"/>
-                    </MultiDataTrigger.Conditions>
-                    <Setter Property="Background" Value="#FF6A5A4A"/>
-                </MultiDataTrigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style x:Key="DefaultBadgeStyle" TargetType="TextBlock">
-            <Setter Property="Visibility" Value="Collapsed"/>
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding IsDefault}" Value="True">
-                    <Setter Property="Visibility" Value="Visible"/>
-                </DataTrigger>
-            </Style.Triggers>
-        </Style>
-
-        <!-- Add Video Track Button Style -->
-        <Style x:Key="AddVideoTrackButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#FF4A6A7A"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderBrush" Value="#FF5A8A9A"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#FF5A8AAA"/>
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#FF3A5A6A"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <!-- Add Audio Track Button Style -->
-        <Style x:Key="AddAudioTrackButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#FF6A5A4A"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderBrush" Value="#FF8A7A6A"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#FF8A7A6A"/>
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#FF5A4A3A"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <!-- Delete Track Button Style -->
-        <Style x:Key="DeleteTrackButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#FF555555"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderBrush" Value="#FF777777"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Style.Triggers>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Opacity" Value="0.4"/>
-                </Trigger>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#FFAA4444"/>
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#FF883333"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <!-- Track Mute/Lock Toggle Button Style -->
-        <Style x:Key="TrackToggleButtonStyle" TargetType="ToggleButton">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderBrush" Value="White"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Style.Triggers>
-                <Trigger Property="IsChecked" Value="True">
-                    <Setter Property="Background" Value="#FFAA4444"/>
-                    <Setter Property="Foreground" Value="Black"/>
-                    <Setter Property="BorderBrush" Value="#FFCC5555"/>
-                </Trigger>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="BorderBrush" Value="White"/>
-                </Trigger>
-                <MultiTrigger>
-                    <MultiTrigger.Conditions>
-                        <Condition Property="IsChecked" Value="True"/>
-                        <Condition Property="IsMouseOver" Value="True"/>
-                    </MultiTrigger.Conditions>
-                    <Setter Property="Background" Value="#FFCC5555"/>
-                </MultiTrigger>
-            </Style.Triggers>
-        </Style>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Styles/TrackStyles.xaml"/>
+                <ResourceDictionary Source="Styles/ButtonStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </Window.Resources>
 
     <Grid>
