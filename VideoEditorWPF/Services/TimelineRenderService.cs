@@ -126,10 +126,10 @@ namespace VideoEditorWPF.Services
         {
             return seconds switch
             {
-                >= 3600 => $"{TimeSpan.FromSeconds(seconds):h\\:mm\\:ss}s",
-                >= 60 => $"{TimeSpan.FromSeconds(seconds):mm\\:ss}s",
-                >= 1 => $"{TimeSpan.FromSeconds(seconds):mm\\:ss}s",
-                _ => $"{TimeSpan.FromSeconds(seconds):mm\\:ss\\.ff}s",
+                >= 3600 => $"{TimeSpan.FromSeconds(seconds):h\\:mm\\:ss}",
+                >= 60 => $"{TimeSpan.FromSeconds(seconds):mm\\:ss}",
+                >= 1 => $"{TimeSpan.FromSeconds(seconds):mm\\:ss}",
+                _ => $"{TimeSpan.FromSeconds(seconds):mm\\:ss\\.ff}",
             };
         }
     }

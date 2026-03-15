@@ -12,8 +12,8 @@ namespace VideoEditorWPF.ViewModels
     public class TimelineViewModel : ViewModelBase
     {
         private const double DefaultScale = 3.0;
-        private const double MinScale = 0.01;
-        private const double MaxScale = 200.0;
+        private const double MinScale = 0.5;
+        private const double MaxScale = 800.0;  // Increased from 200.0 for better zoom capability
 
         private double _timelineScale = DefaultScale;
         private double _playheadPosition = 0;
@@ -89,10 +89,16 @@ namespace VideoEditorWPF.ViewModels
 
         public double PlayheadTimeSeconds => PlayheadPosition / TimelineScale;
 
+        // Expose min/max for slider binding
+        public double MinTimelineScale => MinScale;
+        public double MaxTimelineScale => MaxScale;
+
         public ICommand AddVideoTrackCommand { get; }
         public ICommand AddAudioTrackCommand { get; }
         public ICommand DeleteSelectedTrackCommand { get; }
-        public ICommand ResetPlayheadCommand { get; } // Add this
+        public ICommand ResetPlayheadCommand { get; }
+        public ICommand ZoomInCommand { get; }
+        public ICommand ZoomOutCommand { get; }
 
         public event EventHandler TimelineScaleChanged;
 
@@ -107,6 +113,8 @@ namespace VideoEditorWPF.ViewModels
             AddAudioTrackCommand = new RelayCommand(_ => AddTrack(MediaType.Audio));
             DeleteSelectedTrackCommand = new RelayCommand(_ => DeleteSelectedTrack());
             ResetPlayheadCommand = new RelayCommand(_ => ResetPlayhead());
+            ZoomInCommand = new RelayCommand(_ => ZoomIn());
+            ZoomOutCommand = new RelayCommand(_ => ZoomOut());
 
             Tracks.CollectionChanged += (s, e) => CommandManager.InvalidateRequerySuggested();
         }
@@ -131,7 +139,6 @@ namespace VideoEditorWPF.ViewModels
             };
             Tracks.Add(audioTrack);
         }
-
 
         public void AddTrack(MediaType trackType)
         {
@@ -236,8 +243,6 @@ namespace VideoEditorWPF.ViewModels
             var clip = _clipFactory.CreateClip(mediaFile, startTimeSeconds, TimelineScale, trackIndex);
 
             track.Clips.Add(clip);
-
-            PlayheadPosition = (startTimeSeconds + mediaFile.Duration.TotalSeconds) * TimelineScale;
         }
 
         private void UpdateAllClipPositionsAndWidths()
@@ -263,6 +268,16 @@ namespace VideoEditorWPF.ViewModels
         private void ResetPlayhead()
         {
             PlayheadPosition = 0;
+        }
+
+        private void ZoomIn()
+        {
+            TimelineScale *= 1.1;
+        }
+
+        private void ZoomOut()
+        {
+            TimelineScale /= 1.1;
         }
     }
 }

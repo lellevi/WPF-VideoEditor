@@ -257,8 +257,14 @@
             <!-- Zoom -->
             <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="20">
                 <TextBlock Text="🔍 Zoom:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <Button Command="{Binding Timeline.ZoomOutCommand}" Content="−" Width="30" Height="25"
+        Margin="0,0,5,0" FontSize="16" FontWeight="Bold" ToolTip="Zoom Out (−0.1)"/>
                 <Slider x:Name="ZoomSlider" Width="150" Height="25"
+                   Minimum="{Binding Timeline.MinTimelineScale}"
+                   Maximum="{Binding Timeline.MaxTimelineScale}"
                    Value="{Binding Timeline.TimelineScale}"/>
+                <Button Command="{Binding Timeline.ZoomInCommand}" Content="+" Width="30" Height="25"
+        Margin="5,0,0,0" FontSize="16" FontWeight="Bold" ToolTip="Zoom In (+0.1)"/>
                 <TextBlock x:Name="ZoomLabel" Text="{Binding Timeline.TimelineScale, StringFormat={}{0:F1}x}"
                       Margin="15,0" VerticalAlignment="Center"/>
 

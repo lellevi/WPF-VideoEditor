@@ -58,11 +58,8 @@ namespace VideoEditorWPF.ViewModels
             foreach (var mediaFile in mediaFiles)
             {
                 MediaFiles.Add(mediaFile);
-                _timelineService.AddClipToTimeline(mediaFile, Timeline);
+                // Removed auto-import to timeline - files now only added on double-click
             }
-
-            // Обновляем общую длительность после добавления клипов
-            Preview.UpdateTotalDuration();
         }
 
         private void ExecuteExport(object parameter)
