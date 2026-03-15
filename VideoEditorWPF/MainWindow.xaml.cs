@@ -25,6 +25,11 @@ namespace VideoEditorWPF
         private Rectangle _draggedVisual;
         private TextBlock _draggedLabel;
 
+        // Snap indicator visuals
+        private Line _snapIndicatorLine;
+        private TextBlock _snapIndicatorLabel;
+        private Border _snapIndicatorBorder;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -286,7 +291,15 @@ namespace VideoEditorWPF
                 double newStartX = Math.Max(0, visualStartX + deltaX);
 
                 // Snap to 0.5s grid if Shift is pressed
-                newStartX = SnapToGrid(newStartX, isShiftPressed);
+                if (isShiftPressed)
+                {
+                    newStartX = SnapToGrid(newStartX, true);
+                    ShowSnapIndicator(newStartX);
+                }
+                else
+                {
+                    HideSnapIndicator();
+                }
 
                 // Update model (converts pixels to time using current scale)
                 ViewModel.Timeline.UpdateClipTimePosition(_draggedClip, newStartX);
@@ -312,6 +325,8 @@ namespace VideoEditorWPF
             {
                 RefreshTracks();
             }
+
+            HideSnapIndicator(); // Hide snap indicator when drag ends
 
             TimelineCanvas.ReleaseMouseCapture();
             _draggedClip = null;
@@ -375,9 +390,7 @@ namespace VideoEditorWPF
 
             e.Handled = true;
         }
-        /// <summary>
-        /// Snaps a pixel position to the nearest 0.5-second interval when Shift is pressed
-        /// </summary>
+
         private double SnapToGrid(double pixelPosition, bool isShiftPressed)
         {
             if (!isShiftPressed)
@@ -394,6 +407,79 @@ namespace VideoEditorWPF
 
             // Convert back to pixels
             return snappedSeconds * timelineScale;
+        }
+
+        private void ShowSnapIndicator(double pixelPosition)
+        {
+            double timelineScale = ViewModel.Timeline.TimelineScale;
+            double timeInSeconds = pixelPosition / timelineScale;
+
+            // Create or update the snap line
+            if (_snapIndicatorLine == null)
+            {
+                _snapIndicatorLine = new Line
+                {
+                    Stroke = new SolidColorBrush(Color.FromRgb(255, 215, 0)), // Gold
+                    StrokeThickness = 2,
+                    StrokeDashArray = new DoubleCollection { 4, 2 }
+                };
+                Canvas.SetZIndex(_snapIndicatorLine, 998); // Just below playhead
+                TimelineCanvas.Children.Add(_snapIndicatorLine);
+            }
+
+            _snapIndicatorLine.X1 = pixelPosition;
+            _snapIndicatorLine.X2 = pixelPosition;
+            _snapIndicatorLine.Y1 = 0;
+            _snapIndicatorLine.Y2 = ViewModel.Timeline.CalculatedHeight;
+            _snapIndicatorLine.Visibility = Visibility.Visible;
+
+            // Create or update the snap label
+            if (_snapIndicatorBorder == null)
+            {
+                _snapIndicatorLabel = new TextBlock
+                {
+                    Foreground = Brushes.Black,
+                    FontSize = 11,
+                    FontWeight = FontWeights.Bold,
+                    Padding = new Thickness(4, 2, 4, 2)
+                };
+
+                _snapIndicatorBorder = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromRgb(255, 215, 0)), // Gold
+                    CornerRadius = new CornerRadius(3),
+                    Child = _snapIndicatorLabel,
+                    BorderBrush = new SolidColorBrush(Color.FromRgb(218, 165, 32)), // GoldenRod
+                    BorderThickness = new Thickness(1)
+                };
+                Canvas.SetZIndex(_snapIndicatorBorder, 999);
+                TimelineCanvas.Children.Add(_snapIndicatorBorder);
+            }
+
+            // Format time as mm:ss.f
+            var timeSpan = TimeSpan.FromSeconds(timeInSeconds);
+            string timeText = timeInSeconds >= 60
+                ? $"{timeSpan:mm\\:ss\\.f}"
+                : $"{timeSpan:ss\\.f}s";
+
+            _snapIndicatorLabel.Text = timeText;
+
+            // Position label above the line
+            Canvas.SetLeft(_snapIndicatorBorder, pixelPosition + 5);
+            Canvas.SetTop(_snapIndicatorBorder, 5);
+            _snapIndicatorBorder.Visibility = Visibility.Visible;
+        }
+
+        /// <summary>
+        /// Hides the snap indicator
+        /// </summary>
+        private void HideSnapIndicator()
+        {
+            if (_snapIndicatorLine != null)
+                _snapIndicatorLine.Visibility = Visibility.Collapsed;
+
+            if (_snapIndicatorBorder != null)
+                _snapIndicatorBorder.Visibility = Visibility.Collapsed;
         }
     }
 }
