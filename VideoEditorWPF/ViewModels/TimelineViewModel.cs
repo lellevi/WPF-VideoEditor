@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Windows;
 using System.Windows.Input;
 using VideoEditorWPF.Commands;
 using VideoEditorWPF.Factories;
 using VideoEditorWPF.Models;
-using System.Windows;
 
 namespace VideoEditorWPF.ViewModels
 {
@@ -35,7 +35,6 @@ namespace VideoEditorWPF.ViewModels
                         _selectedTrack.IsSelected = false;
 
                     _selectedTrack = value;
-
                     if (_selectedTrack != null)
                         _selectedTrack.IsSelected = true;
 
@@ -81,18 +80,35 @@ namespace VideoEditorWPF.ViewModels
             {
                 if (_playheadPosition != value)
                 {
-                    _playheadPosition = value;
+                    _playheadPosition = Math.Max(0, value);
                     OnPropertyChanged();
+                    // ✅ Уведомляем об изменениях зависимых свойств
+                    OnPropertyChanged(nameof(PlayheadSeconds));
+                    OnPropertyChanged(nameof(CurrentTimeString));
+                    OnPropertyChanged(nameof(TotalDurationSeconds)); // Если нужно
                 }
             }
         }
 
-        public double PlayheadTimeSeconds => PlayheadPosition / TimelineScale;
+        // ✅ ЕДИНОЕ свойство PlayheadSeconds с TwoWay binding
+        public double PlayheadSeconds
+        {
+            get => PlayheadPosition / TimelineScale;
+            set
+            {
+                PlayheadPosition = value * TimelineScale;
+            }
+        }
+
+        // ✅ Остальные вычисляемые свойства (только чтение)
+        public string CurrentTimeString => TimeSpan.FromSeconds(PlayheadSeconds).ToString(@"hh\:mm\:ss");
+        public double TotalDurationSeconds => GetTotalDuration().TotalSeconds;
+        public string TotalDurationString => GetTotalDuration().ToString(@"hh\:mm\:ss");
 
         public ICommand AddVideoTrackCommand { get; }
         public ICommand AddAudioTrackCommand { get; }
         public ICommand DeleteSelectedTrackCommand { get; }
-        public ICommand ResetPlayheadCommand { get; } // Add this
+        public ICommand ResetPlayheadCommand { get; }
 
         public event EventHandler TimelineScaleChanged;
 
@@ -105,11 +121,25 @@ namespace VideoEditorWPF.ViewModels
 
             AddVideoTrackCommand = new RelayCommand(_ => AddTrack(MediaType.Video));
             AddAudioTrackCommand = new RelayCommand(_ => AddTrack(MediaType.Audio));
-            DeleteSelectedTrackCommand = new RelayCommand(_ => DeleteSelectedTrack());
+            DeleteSelectedTrackCommand = new RelayCommand(_ => DeleteSelectedTrack(),
+                _ => SelectedTrack != null && !SelectedTrack.IsDefault && CanDeleteTrack());
             ResetPlayheadCommand = new RelayCommand(_ => ResetPlayhead());
 
-            Tracks.CollectionChanged += (s, e) => CommandManager.InvalidateRequerySuggested();
+            Tracks.CollectionChanged += (s, e) => {
+                CommandManager.InvalidateRequerySuggested();
+                OnPropertyChanged(nameof(CalculatedHeight));
+                OnPropertyChanged(nameof(TotalDurationSeconds));
+                OnPropertyChanged(nameof(TotalDurationString));
+            };
         }
+
+        private bool CanDeleteTrack()
+        {
+            return SelectedTrack != null &&
+                   !SelectedTrack.IsDefault &&
+                   Tracks.Count(t => t.Type == SelectedTrack.Type) > 1;
+        }
+
 
         private void InitializeDefaultTracks()
         {
@@ -132,7 +162,6 @@ namespace VideoEditorWPF.ViewModels
             Tracks.Add(audioTrack);
         }
 
-
         public void AddTrack(MediaType trackType)
         {
             var tracksOfType = Tracks.Where(t => t.Type == trackType).ToList();
@@ -146,30 +175,22 @@ namespace VideoEditorWPF.ViewModels
             };
 
             if (trackType == MediaType.Video)
-            {
                 Tracks.Insert(0, newTrack);
-            }
             else
-            {
                 Tracks.Add(newTrack);
-            }
 
             ReindexTracks();
         }
 
         private void DeleteSelectedTrack()
         {
-            // Validation checks inline
-            if (SelectedTrack == null || SelectedTrack.IsDefault)
-                return;
+            if (SelectedTrack == null || SelectedTrack.IsDefault) return;
 
             var tracksOfType = Tracks.Count(t => t.Type == SelectedTrack.Type);
-            if (tracksOfType <= 1)
-                return;
+            if (tracksOfType <= 1) return;
 
-            // Ask for confirmation
             var result = MessageBox.Show(
-                $"Are you sure you want to delete track '{SelectedTrack.Name}'?",
+                $"Delete track '{SelectedTrack.Name}'?",
                 "Delete Track",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
@@ -194,7 +215,7 @@ namespace VideoEditorWPF.ViewModels
         public void AddClipToTrack(MediaFile mediaFile)
         {
             bool isVideo = !mediaFile.FilePath.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) &&
-                           !mediaFile.FilePath.EndsWith(".wav", StringComparison.OrdinalIgnoreCase);
+                          !mediaFile.FilePath.EndsWith(".wav", StringComparison.OrdinalIgnoreCase);
 
             var track = Tracks.FirstOrDefault(t => t.Type == (isVideo ? MediaType.Video : MediaType.Audio));
 
@@ -258,11 +279,40 @@ namespace VideoEditorWPF.ViewModels
             clip.StartTimeSeconds = newStartX / TimelineScale;
         }
 
-        public double CalculatedHeight => Tracks.Count * 70; // 70px per track
+        public double CalculatedHeight => Tracks.Count * 70;
+
+        public double PlayheadTimeSeconds => PlayheadPosition / TimelineScale;
 
         private void ResetPlayhead()
         {
             PlayheadPosition = 0;
         }
+
+        public TimeSpan GetTotalDuration()
+        {
+            double maxEnd = 0;
+            Console.WriteLine($"🔍 Tracks.Count = {Tracks.Count}"); // DEBUG
+
+            foreach (var track in Tracks)
+            {
+                Console.WriteLine($"  Track '{track.Name}': {track.Clips.Count} clips"); // DEBUG
+
+                foreach (var clip in track.Clips)
+                {
+                    // ✅ Используем clip.DurationSeconds напрямую (НЕ MediaFile!)
+                    double endTime = clip.StartTimeSeconds + clip.DurationSeconds;
+                    Console.WriteLine($"    Clip: Start={clip.StartTimeSeconds:F2}s, Duration={clip.DurationSeconds:F2}s, End={endTime:F2}s");
+
+                    if (endTime > maxEnd)
+                        maxEnd = endTime;
+                }
+            }
+
+            var duration = TimeSpan.FromSeconds(maxEnd);
+            Console.WriteLine($"📏 FINAL TotalDuration: {duration.TotalSeconds:F2} сек"); // DEBUG
+            return duration;
+        }
+
+
     }
 }

@@ -187,33 +187,48 @@
             </Border>
 
             <!-- Transport Controls -->
+            <!-- Transport Controls (замените полностью Grid.Row="1") -->
             <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="20">
-                <Button Command="{Binding Timeline.ResetPlayheadCommand}" Content="⏮|" Width="45" Height="35" Margin="5" ToolTip="Reset to Start (00:00)"/>
-                <Button Command="{Binding Preview.PreviousFrameCommand}" Content="⏮" Width="45" Height="35" Margin="5"/>
-                <Button x:Name="PlayPauseBtn" Command="{Binding Preview.PlayPauseCommand}" Width="45" Height="35" Margin="5">
+                <Button Command="{Binding Timeline.ResetPlayheadCommand}"
+            Content="⏮|" Width="45" Height="35" Margin="5"
+            ToolTip="Reset to Start"/>
+
+                <Button Command="{Binding Preview.PreviousFrameCommand}"
+            Content="⏮" Width="45" Height="35" Margin="5"/>
+
+                <!-- ✅ ПРАВИЛЬНАЯ структура Style с Triggers -->
+                <Button Command="{Binding Preview.PlayPauseCommand}"
+            Width="45" Height="35" Margin="5">
                     <Button.Style>
                         <Style TargetType="Button">
                             <Setter Property="Content" Value="▶"/>
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding Preview.IsPlaying}" Value="True">
+                                <DataTrigger Binding="{Binding Timeline.IsPlaying}" Value="True">
                                     <Setter Property="Content" Value="⏸"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </Button.Style>
                 </Button>
-                <Button Command="{Binding Preview.NextFrameCommand}" Content="⏭" Width="45" Height="35" Margin="5"/>
-                <TextBlock x:Name="CurrentTimeLabel" 
-                      Text="{Binding Preview.CurrentTime, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
-                      Margin="25,0,15,0" VerticalAlignment="Center" FontWeight="Bold"/>
-                <Slider x:Name="TimelineSlider" Width="250" Height="25" Margin="10,0"
-                    Minimum="0" 
-                    Maximum="{Binding Preview.TotalDuration.TotalSeconds}"
-                    Value="{Binding Preview.CurrentTimeSeconds, Mode=TwoWay}"/>
-                <TextBlock x:Name="TotalTimeLabel" 
-                      Text="{Binding Preview.TotalDuration, StringFormat={}{0:hh\\:mm\\:ss}}" 
-                      Margin="10,0" VerticalAlignment="Center"/>
+
+                <Button Command="{Binding Preview.NextFrameCommand}"
+            Content="⏭" Width="45" Height="35" Margin="5"/>
+
+                <TextBlock Text="{Binding Timeline.CurrentTimeString}"
+               Margin="10,0" VerticalAlignment="Center" FontWeight="Bold"
+               MinWidth="60" TextAlignment="Center"/>
+
+                <Slider Width="250" Height="25" Margin="5"
+            Minimum="0"
+            Maximum="{Binding Timeline.TotalDurationSeconds}"
+            Value="{Binding Timeline.PlayheadSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                <TextBlock Text="{Binding Timeline.TotalDurationString}"
+               Margin="10,0" VerticalAlignment="Center"
+               MinWidth="60" TextAlignment="Center"/>
             </StackPanel>
+
+
 
             <!-- Timeline with Track Management -->
             <Border Grid.Row="2" BorderBrush="Gray" BorderThickness="1">

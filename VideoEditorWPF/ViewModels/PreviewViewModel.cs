@@ -1,41 +1,41 @@
 using System;
+using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
 using VideoEditorWPF.Commands;
 
 namespace VideoEditorWPF.ViewModels
 {
-    /// <summary>
-    /// ViewModel для управления превью видео
-    /// Обрабатывает воспроизведение, паузу, навигацию по кадрам
-    /// </summary>
-    public class PreviewViewModel : ViewModelBase
+    public partial class PreviewViewModel : ViewModelBase
     {
-        // === КОНСТАНТЫ ===
         private const int DEFAULT_FPS = 24;
-
-        // === ПОЛЯ ===
+        private MediaElement _mediaElement;
         private readonly TimelineViewModel _timeline;
         private readonly DispatcherTimer _renderTimer;
-
         private bool _isPlaying;
         private TimeSpan _currentTime;
         private TimeSpan _totalDuration;
         private int _previewFPS;
         private DateTime _lastUpdateTime;
+        private bool _isUpdatingFromTimeline = false; // ✅ Защита от цикла
 
-        // === СОБЫТИЯ ===
-        /// <summary>
-        /// Событие вызывается когда нужен новый кадр для отображения
-        /// Параметр: время (TimeSpan) для которого нужен кадр
-        /// </summary>
         public event Action<TimeSpan> PreviewFrameNeeded;
+        public TimeSpan CurrentTime
+        {
+            get => _currentTime;
+            set
+            {
+                if (_isUpdatingFromTimer || _isUpdatingFromTimeline || _currentTime == value)
+                    return; // ✅ Блокируем рекурсию!
 
-        // === СВОЙСТВА ===
+                _currentTime = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(CurrentTimeSeconds));
+                RequestFrame(value);
+            }
+        }
 
-        /// <summary>
-        /// Идет ли воспроизведение
-        /// </summary>
         public bool IsPlaying
         {
             get => _isPlaying;
@@ -44,67 +44,31 @@ namespace VideoEditorWPF.ViewModels
                 if (_isPlaying != value)
                 {
                     _isPlaying = value;
-                    OnPropertyChanged();
+                    OnPropertyChanged(); // ✅ Обновляем UI кнопки
 
-                    // Синхронизируем с Timeline
-                    if (_timeline != null)
-                        _timeline.IsPlaying = value;
+                    // ✅ СИНХРОНИЗИРУЕМ с Timeline ПЕРЕД изменением состояния!
+                    _timeline.IsPlaying = _isPlaying;
 
-                    // Запускаем/останавливаем таймер
                     if (_isPlaying)
-                        StartPlayback();
-                    else
-                        StopPlayback();
-                }
-            }
-        }
-
-        /// <summary>
-        /// Текущее время воспроизведения
-        /// Связано двунаправленно с Timeline.PlayheadPosition
-        /// </summary>
-        public TimeSpan CurrentTime
-        {
-            get => _currentTime;
-            set
-            {
-                if (_currentTime != value)
-                {
-                    _currentTime = value;
-                    OnPropertyChanged();
-                    OnPropertyChanged(nameof(CurrentTimeSeconds));
-
-                    // Синхронизируем с Timeline (конвертируем TimeSpan в пиксели)
-                    if (_timeline != null)
                     {
-                        _timeline.PlayheadPosition = TimeSpanToPixels(value);
+                        StartPlayback(); // ✅ Запускаем таймер
+                        Console.WriteLine("▶️ PLAY STARTED"); // DEBUG
                     }
-
-                    // Запрашиваем новый кадр
-                    RequestFrame(value);
+                    else
+                    {
+                        StopPlayback(); // ✅ Останавливаем таймер
+                        Console.WriteLine("⏸ PAUSE"); // DEBUG
+                    }
                 }
             }
         }
 
-        /// <summary>
-        /// Текущее время в секундах (для TwoWay binding с Slider)
-        /// </summary>
         public double CurrentTimeSeconds
         {
             get => _currentTime.TotalSeconds;
-            set
-            {
-                var newTime = TimeSpan.FromSeconds(value);
-                if (_currentTime != newTime)
-                {
-                    CurrentTime = newTime;
-                }
-            }
+            set => CurrentTime = TimeSpan.FromSeconds(value);
         }
 
-        /// <summary>
-        /// Частота кадров для превью (по умолчанию 24 fps)
-        /// </summary>
         public int PreviewFPS
         {
             get => _previewFPS;
@@ -114,19 +78,11 @@ namespace VideoEditorWPF.ViewModels
                 {
                     _previewFPS = value;
                     OnPropertyChanged();
-
-                    // Обновляем интервал таймера
-                    if (_renderTimer != null)
-                    {
-                        _renderTimer.Interval = TimeSpan.FromMilliseconds(1000.0 / _previewFPS);
-                    }
+                    _renderTimer.Interval = TimeSpan.FromMilliseconds(1000.0 / _previewFPS);
                 }
             }
         }
 
-        /// <summary>
-        /// Общая длительность таймлайна
-        /// </summary>
         public TimeSpan TotalDuration
         {
             get => _totalDuration;
@@ -140,249 +96,153 @@ namespace VideoEditorWPF.ViewModels
             }
         }
 
-        // === КОМАНДЫ ===
         public ICommand PlayPauseCommand { get; }
         public ICommand NextFrameCommand { get; }
         public ICommand PreviousFrameCommand { get; }
-        public ICommand SeekCommand { get; }
 
-        // === КОНСТРУКТОР ===
-
-        /// <summary>
-        /// Создает PreviewViewModel с привязкой к TimelineViewModel
-        /// </summary>
-        /// <param name="timeline">TimelineViewModel для синхронизации</param>
-        public PreviewViewModel(TimelineViewModel timeline)
+        public PreviewViewModel(TimelineViewModel timeline) // ✅ Убираем MediaElement
         {
-            _timeline = timeline ?? throw new ArgumentNullException(nameof(timeline));
+            _timeline = timeline;
             _previewFPS = DEFAULT_FPS;
             _currentTime = TimeSpan.Zero;
-            _totalDuration = TimeSpan.FromMinutes(5); // По умолчанию
+            //_totalDuration = TimeSpan.Zero;
+            _totalDuration = TimeSpan.FromMinutes(2); // ✅ ТЕСТОВЫЕ 2 МИНУТЫ!
 
-            // Создаем таймер для рендеринга
             _renderTimer = new DispatcherTimer(DispatcherPriority.Render)
             {
-                Interval = TimeSpan.FromMilliseconds(1000.0 / _previewFPS)
+                //Interval = TimeSpan.FromMilliseconds(1000.0 / _previewFPS)
+                Interval = TimeSpan.FromMilliseconds(40) // ✅ 25fps
             };
             _renderTimer.Tick += OnRenderTick;
 
-            // Инициализируем команды
             PlayPauseCommand = new RelayCommand(ExecutePlayPause);
             NextFrameCommand = new RelayCommand(ExecuteNextFrame);
             PreviousFrameCommand = new RelayCommand(ExecutePreviousFrame);
-            SeekCommand = new RelayCommand(ExecuteSeek, CanExecuteSeek);
 
-            // Подписываемся на изменения Timeline
             SubscribeToTimelineChanges();
+            UpdateTotalDuration();
         }
 
-        // === ПРИВАТНЫЕ МЕТОДЫ ===
+        // ✅ Убираем события MediaElement - используем таймер
 
-        /// <summary>
-        /// Подписывается на изменения в Timeline для синхронизации
-        /// </summary>
+
+
+        // ✅ ЕДИНСТВЕННЫЙ метод подписки
         private void SubscribeToTimelineChanges()
         {
-            if (_timeline == null)
-                return;
-
-            // Когда пользователь двигает playhead в Timeline - обновляем CurrentTime
             _timeline.PropertyChanged += (sender, args) =>
             {
                 if (args.PropertyName == nameof(TimelineViewModel.PlayheadPosition))
                 {
-                    var newTime = PixelsToTimeSpan(_timeline.PlayheadPosition);
-
-                    // Обновляем только если значение реально изменилось
-                    // (избегаем циклической синхронизации)
-                    if (Math.Abs((newTime - _currentTime).TotalMilliseconds) > 10)
+                    _isUpdatingFromTimeline = true;
+                    try
                     {
-                        _currentTime = newTime;
-                        OnPropertyChanged(nameof(CurrentTime));
-                        RequestFrame(newTime);
+                        var newTime = PixelsToTimeSpan(_timeline.PlayheadPosition);
+                        if (Math.Abs((newTime - _currentTime).TotalSeconds) > 0.01)
+                        {
+                            CurrentTime = newTime;
+                        }
                     }
+                    finally
+                    {
+                        _isUpdatingFromTimeline = false;
+                    }
+                }
+                else if (args.PropertyName == "TotalDurationSeconds") // Без nameof для безопасности
+                {
+                    UpdateTotalDuration();
                 }
             };
         }
 
-        /// <summary>
-        /// Обработчик тика таймера - вызывается каждый кадр при воспроизведении
-        /// </summary>
+        private bool _isUpdatingFromTimer = false; // ✅ Защита от рекурсии
+
         private void OnRenderTick(object sender, EventArgs e)
         {
-            if (!_isPlaying)
-                return;
+            if (_isUpdatingFromTimer || !_isPlaying || TotalDuration == TimeSpan.Zero)
+                return; // ✅ МГНОВЕННЫЙ выход!
 
-            // Вычисляем реальное прошедшее время
-            var now = DateTime.Now;
-            var elapsed = (now - _lastUpdateTime).TotalSeconds;
-            _lastUpdateTime = now;
-
-            // Увеличиваем текущее время
-            var newTime = CurrentTime + TimeSpan.FromSeconds(elapsed);
-
-            // Если достигли конца - останавливаем
-            if (newTime >= TotalDuration)
+            try
             {
-                newTime = TotalDuration;
-                IsPlaying = false;
-            }
+                _isUpdatingFromTimer = true; // ✅ БЛОКИРУЕМ setter
 
-            CurrentTime = newTime;
+                Console.WriteLine($"TICK! Current={_currentTime.TotalSeconds:F2}s / {TotalDuration.TotalSeconds:F2}s");
+
+                var now = DateTime.Now;
+                var elapsed = Math.Max(0.016, (now - _lastUpdateTime).TotalSeconds); // ✅ Минимум 60fps
+                _lastUpdateTime = now;
+
+                var newTime = _currentTime + TimeSpan.FromSeconds(elapsed);
+
+                if (newTime >= TotalDuration)
+                {
+                    Console.WriteLine("🎬 END REACHED");
+                    _isPlaying = false; // ✅ ПРЯМО тут!
+                    OnPropertyChanged(nameof(IsPlaying)); // ✅ Только уведомление
+                    CurrentTime = TotalDuration;
+                }
+                else
+                {
+                    // ✅ ПРЯМОЕ присвоение БЕЗ setter!
+                    _currentTime = newTime;
+                    OnPropertyChanged(nameof(CurrentTime));
+                    OnPropertyChanged(nameof(CurrentTimeSeconds));
+                    RequestFrame(_currentTime); // ✅ Один вызов!
+                }
+            }
+            finally
+            {
+                _isUpdatingFromTimer = false;
+            }
         }
 
-        /// <summary>
-        /// Запускает воспроизведение
-        /// </summary>
+
+        public void UpdateTotalDuration()
+        {
+            TotalDuration = _timeline.GetTotalDuration();
+            Console.WriteLine($"🔧 TotalDuration UPDATED: {TotalDuration.TotalSeconds:F2} сек"); // 🔍 DEBUG
+        }
+
+
         private void StartPlayback()
         {
             _lastUpdateTime = DateTime.Now;
             _renderTimer.Start();
         }
 
-        /// <summary>
-        /// Останавливает воспроизведение
-        /// </summary>
         private void StopPlayback()
         {
             _renderTimer.Stop();
         }
 
-        /// <summary>
-        /// Запрашивает кадр для указанного времени
-        /// </summary>
         private void RequestFrame(TimeSpan time)
         {
             PreviewFrameNeeded?.Invoke(time);
         }
 
-        // === КОНВЕРТАЦИЯ КООРДИНАТ ===
+        private double TimeSpanToPixels(TimeSpan time) => time.TotalSeconds * _timeline.TimelineScale;
+        private TimeSpan PixelsToTimeSpan(double pixels) => TimeSpan.FromSeconds(pixels / _timeline.TimelineScale);
 
-        /// <summary>
-        /// Конвертирует TimeSpan в пиксели на таймлайне
-        /// </summary>
-        private double TimeSpanToPixels(TimeSpan time)
-        {
-            if (_timeline == null)
-                return 0;
+        private void ExecutePlayPause(object parameter) => IsPlaying = !IsPlaying;
 
-            return time.TotalSeconds * _timeline.TimelineScale;
-        }
-
-        /// <summary>
-        /// Конвертирует пиксели на таймлайне в TimeSpan
-        /// </summary>
-        private TimeSpan PixelsToTimeSpan(double pixels)
-        {
-            if (_timeline == null || _timeline.TimelineScale <= 0)
-                return TimeSpan.Zero;
-
-            var seconds = pixels / _timeline.TimelineScale;
-            return TimeSpan.FromSeconds(seconds);
-        }
-
-        // === ВЫПОЛНЕНИЕ КОМАНД ===
-
-        /// <summary>
-        /// Переключает воспроизведение/паузу
-        /// </summary>
-        private void ExecutePlayPause(object parameter)
-        {
-            IsPlaying = !IsPlaying;
-        }
-
-        /// <summary>
-        /// Переходит к следующему кадру
-        /// </summary>
         private void ExecuteNextFrame(object parameter)
         {
-            // Один кадр = 1/FPS секунды
-            var frameDuration = TimeSpan.FromSeconds(1.0 / _previewFPS);
+            var frameDuration = TimeSpan.FromSeconds(1.0 / PreviewFPS);
             var newTime = CurrentTime + frameDuration;
-
-            if (newTime > TotalDuration)
-                newTime = TotalDuration;
-
-            CurrentTime = newTime;
+            CurrentTime = newTime > TotalDuration ? TotalDuration : newTime;
         }
 
-        /// <summary>
-        /// Переходит к предыдущему кадру
-        /// </summary>
         private void ExecutePreviousFrame(object parameter)
         {
-            // Один кадр = 1/FPS секунды
-            var frameDuration = TimeSpan.FromSeconds(1.0 / _previewFPS);
+            var frameDuration = TimeSpan.FromSeconds(1.0 / PreviewFPS);
             var newTime = CurrentTime - frameDuration;
-
-            if (newTime < TimeSpan.Zero)
-                newTime = TimeSpan.Zero;
-
-            CurrentTime = newTime;
+            CurrentTime = newTime < TimeSpan.Zero ? TimeSpan.Zero : newTime;
         }
 
-        /// <summary>
-        /// Переход к указанному времени
-        /// </summary>
-        private void ExecuteSeek(object parameter)
-        {
-            if (parameter is TimeSpan seekTime)
-            {
-                // Ограничиваем диапазоном [0, TotalDuration]
-                if (seekTime < TimeSpan.Zero)
-                    seekTime = TimeSpan.Zero;
-                else if (seekTime > TotalDuration)
-                    seekTime = TotalDuration;
-
-                CurrentTime = seekTime;
-            }
-            else if (parameter is double seconds)
-            {
-                ExecuteSeek(TimeSpan.FromSeconds(seconds));
-            }
-        }
-
-        /// <summary>
-        /// Проверяет, можно ли выполнить команду Seek
-        /// </summary>
-        private bool CanExecuteSeek(object parameter)
-        {
-            return true; // Всегда можно
-        }
-
-        // === ПУБЛИЧНЫЕ МЕТОДЫ ===
-
-        /// <summary>
-        /// Сбрасывает воспроизведение в начало
-        /// </summary>
         public void Reset()
         {
             IsPlaying = false;
             CurrentTime = TimeSpan.Zero;
-        }
-
-        /// <summary>
-        /// Обновляет общую длительность на основе клипов в Timeline
-        /// </summary>
-        public void UpdateTotalDuration()
-        {
-            if (_timeline?.Tracks == null)
-                return;
-
-            double maxDuration = 0;
-
-            // Находим максимальное время окончания всех клипов
-            foreach (var track in _timeline.Tracks)
-            {
-                foreach (var clip in track.Clips)
-                {
-                    var clipEnd = clip.StartTimeSeconds + clip.DurationSeconds;
-                    if (clipEnd > maxDuration)
-                        maxDuration = clipEnd;
-                }
-            }
-
-            TotalDuration = TimeSpan.FromSeconds(maxDuration);
         }
     }
 }

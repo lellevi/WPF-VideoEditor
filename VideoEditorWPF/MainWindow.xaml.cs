@@ -15,7 +15,8 @@ namespace VideoEditorWPF
 {
     public partial class MainWindow : Window
     {
-        private MainViewModel ViewModel => (MainViewModel)DataContext;
+        public MainViewModel ViewModel { get; set; }
+
         private ITimelineRenderService _timelineRenderService;
         private ITrackRenderService _trackRenderService;
         private IPreviewRenderService _previewRenderService;
@@ -25,48 +26,47 @@ namespace VideoEditorWPF
         private Rectangle _draggedVisual;
         private TextBlock _draggedLabel;
 
+        // ✅ Определяем сервисы как поля класса
+        private readonly IMediaService _mediaService = new MediaService();
+        private readonly IDialogService _dialogService = new DialogService();
+        private readonly ITimelineService _timelineService = new TimelineService();
+
         public MainWindow()
         {
             InitializeComponent();
-            InitializeServices();
+            InitializeEverything();
         }
 
-        private void InitializeServices()
+        private void InitializeEverything()
         {
-            IMediaService mediaService = new MediaService();
-            IDialogService dialogService = new DialogService();
-            ITimelineService timelineService = new TimelineService();
-            IClipFactory clipFactory = new ClipFactory();
+            // ✅ 1. Создаем ViewModels (PreviewViewModel БЕЗ MediaElement)
+            var clipFactory = new ClipFactory();
+            var timelineVM = new TimelineViewModel(clipFactory);
+            var previewVM = new PreviewViewModel(timelineVM); // ✅ Только 1 аргумент!
 
-            var timelineViewModel = new TimelineViewModel(clipFactory);
-            var previewViewModel = new PreviewViewModel(timelineViewModel);
-            var mainViewModel = new MainViewModel(mediaService, dialogService, timelineService, timelineViewModel, previewViewModel);
+            ViewModel = new MainViewModel(_mediaService, _dialogService, _timelineService, timelineVM, previewVM);
+            DataContext = ViewModel;
 
-            IClipRenderService clipRenderService = new ClipRenderService();
+            // ✅ 2. Инициализируем Render сервисы
+            var clipRenderService = new ClipRenderService();
             _trackRenderService = new TrackRenderService(clipRenderService);
             _timelineRenderService = new TimelineRenderService();
-
-            // Инициализация PreviewRenderService
             _previewRenderService = new PreviewRenderService();
+
             PreviewCanvas.Source = _previewRenderService.InitializePreview();
 
-            DataContext = mainViewModel;
+            // ✅ 3. Настраиваем события
             SetupEventHandlers();
             SetupPreviewIntegration();
         }
 
         private void SetupPreviewIntegration()
         {
-            // Подписываемся на событие запроса кадра
             ViewModel.Preview.PreviewFrameNeeded += OnPreviewFrameNeeded;
-
-            // Устанавливаем FPS
-            _previewRenderService.SetPreviewFPS(ViewModel.Preview.PreviewFPS);
         }
 
         private void OnPreviewFrameNeeded(TimeSpan time)
         {
-            // Обновляем превью для текущего времени
             if (PreviewCanvas.Source is System.Windows.Media.Imaging.WriteableBitmap bitmap)
             {
                 _previewRenderService.UpdatePreview(bitmap, time, ViewModel.Timeline.Tracks);
@@ -76,8 +76,8 @@ namespace VideoEditorWPF
         private void SetupEventHandlers()
         {
             TimelineScrollViewer.MouseWheel += TimelineScrollViewer_MouseWheel;
-
             ViewModel.Timeline.Tracks.CollectionChanged += Tracks_CollectionChanged;
+
             foreach (var track in ViewModel.Timeline.Tracks)
             {
                 track.Clips.CollectionChanged += Clips_CollectionChanged;
@@ -85,7 +85,6 @@ namespace VideoEditorWPF
 
             ViewModel.Timeline.TimelineScaleChanged += TimelineScaleChanged_Handler;
             ViewModel.Timeline.PropertyChanged += Timeline_PropertyChanged;
-
             Loaded += Window_Loaded;
             Closing += Window_Closing;
         }
@@ -97,9 +96,10 @@ namespace VideoEditorWPF
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            // Отписываемся от событий
             TimelineScrollViewer.MouseWheel -= TimelineScrollViewer_MouseWheel;
-
             ViewModel.Timeline.Tracks.CollectionChanged -= Tracks_CollectionChanged;
+
             foreach (var track in ViewModel.Timeline.Tracks)
             {
                 track.Clips.CollectionChanged -= Clips_CollectionChanged;
@@ -107,11 +107,11 @@ namespace VideoEditorWPF
 
             ViewModel.Timeline.TimelineScaleChanged -= TimelineScaleChanged_Handler;
             ViewModel.Timeline.PropertyChanged -= Timeline_PropertyChanged;
-
             Loaded -= Window_Loaded;
             Closing -= Window_Closing;
         }
 
+        // ✅ Остальные методы БЕЗ ИЗМЕНЕНИЙ (копируйте из вашего кода):
         private void Timeline_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
             if (e.PropertyName == nameof(ViewModel.Timeline.PlayheadPosition))
@@ -145,7 +145,6 @@ namespace VideoEditorWPF
                     track.Clips.CollectionChanged += Clips_CollectionChanged;
                 }
             }
-
             if (e.OldItems != null)
             {
                 foreach (Track track in e.OldItems)
@@ -153,7 +152,6 @@ namespace VideoEditorWPF
                     track.Clips.CollectionChanged -= Clips_CollectionChanged;
                 }
             }
-
             RefreshTracks();
         }
 
@@ -184,7 +182,6 @@ namespace VideoEditorWPF
             TimeRulerCanvas.Children.Clear();
             _timelineRenderService.RenderTimeline(TimeRulerCanvas, ViewModel.Timeline.TimelineScale, TimelineScrollViewer.ViewportWidth);
 
-            // Add playhead to ruler after rendering
             var rulerPlayhead = new Rectangle
             {
                 Width = 3,
@@ -208,7 +205,6 @@ namespace VideoEditorWPF
 
         private void DrawTrackSeparators()
         {
-            // Remove old separator lines
             var oldLines = TimelineCanvas.Children.OfType<Line>()
                 .Where(l => l.Tag?.ToString() == "TrackSeparator")
                 .ToList();
@@ -217,23 +213,20 @@ namespace VideoEditorWPF
                 TimelineCanvas.Children.Remove(line);
             }
 
-            // Draw horizontal separator lines between tracks
             for (int i = 0; i < ViewModel.Timeline.Tracks.Count; i++)
             {
-                double y = (i + 1) * 70; // Bottom edge of each track
-
+                double y = (i + 1) * 70;
                 var line = new Line
                 {
                     X1 = 0,
                     Y1 = y,
                     X2 = 4000,
                     Y2 = y,
-                    Stroke = new SolidColorBrush(Color.FromRgb(62, 62, 66)), // #FF3E3E42
+                    Stroke = new SolidColorBrush(Color.FromRgb(62, 62, 66)),
                     StrokeThickness = 1,
                     Tag = "TrackSeparator"
                 };
-
-                Canvas.SetZIndex(line, -1); // Behind clips
+                Canvas.SetZIndex(line, -1);
                 TimelineCanvas.Children.Add(line);
             }
         }
@@ -249,10 +242,8 @@ namespace VideoEditorWPF
                 {
                     _draggedClip = clip;
                     _draggedVisual = rect;
-
                     _draggedLabel = TimelineCanvas.Children.OfType<TextBlock>()
                         .FirstOrDefault(tb => tb.Tag == clip);
-
                     TimelineCanvas.CaptureMouse();
                     return;
                 }
@@ -274,14 +265,9 @@ namespace VideoEditorWPF
                 ViewModel.Timeline.UpdateClipTimePosition(_draggedClip, newStartX);
 
                 if (_draggedVisual != null)
-                {
                     Canvas.SetLeft(_draggedVisual, _draggedClip.StartX);
-                }
-
                 if (_draggedLabel != null)
-                {
                     Canvas.SetLeft(_draggedLabel, _draggedClip.StartX + 5);
-                }
 
                 _lastMousePos = currentPos;
             }
@@ -290,9 +276,7 @@ namespace VideoEditorWPF
         private void TimelineCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             if (_draggedClip != null)
-            {
                 RefreshTracks();
-            }
 
             TimelineCanvas.ReleaseMouseCapture();
             _draggedClip = null;
@@ -326,22 +310,15 @@ namespace VideoEditorWPF
         private void TrackHeadersScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
             if (e.VerticalChange != 0)
-            {
                 TimelineScrollViewer.ScrollToVerticalOffset(e.VerticalOffset);
-            }
         }
 
         private void TimelineScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
             if (e.VerticalChange != 0)
-            {
                 TrackHeadersScrollViewer.ScrollToVerticalOffset(e.VerticalOffset);
-            }
-
             if (e.HorizontalChange != 0)
-            {
                 TimeRulerScrollViewer.ScrollToHorizontalOffset(e.HorizontalOffset);
-            }
         }
     }
 }
