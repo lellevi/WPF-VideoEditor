@@ -68,7 +68,7 @@ namespace VideoEditorWPF.ViewModels
                 {
                     _timelineScale = value;
                     OnPropertyChanged();
-                    UpdateAllClipPositionsAndWidths();
+
                     TimelineScaleChanged?.Invoke(this, EventArgs.Empty);
                 }
             }
@@ -245,21 +245,8 @@ namespace VideoEditorWPF.ViewModels
             track.Clips.Add(clip);
         }
 
-        private void UpdateAllClipPositionsAndWidths()
-        {
-            foreach (var track in Tracks)
-            {
-                foreach (var clip in track.Clips)
-                {
-                    clip.OffsetPixels = clip.OffsetSeconds * TimelineScale;
-                    clip.Width = clip.DurationSeconds * TimelineScale;
-                }
-            }
-        }
-
         public void UpdateClipTimePosition(Clip clip, double newStartX)
         {
-            clip.OffsetPixels = newStartX;
             clip.OffsetSeconds = newStartX / TimelineScale;
         }
 

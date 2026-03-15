@@ -19,9 +19,7 @@ namespace VideoEditorWPF.Factories
             {
                 FilePath = mediaFile.FilePath,
                 OffsetSeconds = startTimeSeconds,
-                OffsetPixels = startTimeSeconds * timelineScale,
                 DurationSeconds = mediaFile.Duration.TotalSeconds,
-                Width = mediaFile.Duration.TotalSeconds * timelineScale,
                 IsVideoClip = isVideo,
                 TrackIndex = trackIndex
             };

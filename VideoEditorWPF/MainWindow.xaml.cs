@@ -202,7 +202,7 @@ namespace VideoEditorWPF
         private void RefreshTracks()
         {
             _trackRenderService.ClearTracks(TimelineCanvas);
-            _trackRenderService.RenderTracks(TimelineCanvas, ViewModel.Timeline.Tracks, TimelineScrollViewer.ViewportWidth);
+            _trackRenderService.RenderTracks(TimelineCanvas, ViewModel.Timeline.Tracks, TimelineScrollViewer.ViewportWidth, ViewModel.Timeline.TimelineScale);
             DrawTrackSeparators();
         }
 
@@ -268,19 +268,30 @@ namespace VideoEditorWPF
             if (e.LeftButton == MouseButtonState.Pressed && _draggedClip != null && TimelineCanvas.IsMouseCaptured)
             {
                 var currentPos = e.GetPosition(TimelineCanvas);
+
+                // Get current visual X position from the actual rendered rectangle
+                double visualStartX = _draggedVisual != null
+                    ? Canvas.GetLeft(_draggedVisual)
+                    : _draggedClip.GetOffsetPixels(ViewModel.Timeline.TimelineScale);
+
+                // Calculate delta from last position
                 var deltaX = currentPos.X - _lastMousePos.X;
 
-                double newStartX = Math.Max(0, _draggedClip.OffsetPixels + deltaX);
+                // Apply delta to visual position
+                double newStartX = Math.Max(0, visualStartX + deltaX);
+
+                // Update model (converts pixels to time using current scale)
                 ViewModel.Timeline.UpdateClipTimePosition(_draggedClip, newStartX);
 
+                // Update visuals
                 if (_draggedVisual != null)
                 {
-                    Canvas.SetLeft(_draggedVisual, _draggedClip.OffsetPixels);
+                    Canvas.SetLeft(_draggedVisual, newStartX);
                 }
 
                 if (_draggedLabel != null)
                 {
-                    Canvas.SetLeft(_draggedLabel, _draggedClip.OffsetPixels + 5);
+                    Canvas.SetLeft(_draggedLabel, newStartX + 5);
                 }
 
                 _lastMousePos = currentPos;

@@ -10,13 +10,13 @@ namespace VideoEditorWPF.Services
 {
     public interface ITrackRenderService
     {
-        void RenderTracks(Canvas canvas, IEnumerable<Track> tracks, double viewportWidth);
+        void RenderTracks(Canvas canvas, IEnumerable<Track> tracks, double viewportWidth, double timelineScale);
         void ClearTracks(Canvas canvas);
     }
 
     public class TrackRenderService : ITrackRenderService
     {
-        private const double TRACK_HEADER_HEIGHT = 25; // TODO: rename
+        private const double TRACK_HEADER_HEIGHT = 25;
         private const double TRACK_HEIGHT = 50;
         private const double TRACK_GAP = 5;
 
@@ -27,14 +27,14 @@ namespace VideoEditorWPF.Services
             _clipRenderService = clipRenderService;
         }
 
-        public void RenderTracks(Canvas canvas, IEnumerable<Track> tracks, double viewportWidth)
+        public void RenderTracks(Canvas canvas, IEnumerable<Track> tracks, double viewportWidth, double timelineScale)
         {
             double currentY = TRACK_HEADER_HEIGHT + TRACK_GAP;
 
             foreach (var track in tracks)
             {
                 DrawTrackHeader(canvas, track, currentY, viewportWidth);
-                _clipRenderService.RenderClips(canvas, track.Clips, currentY);
+                _clipRenderService.RenderClips(canvas, track.Clips, currentY, timelineScale);
                 currentY += TRACK_HEIGHT + TRACK_GAP;
             }
         }

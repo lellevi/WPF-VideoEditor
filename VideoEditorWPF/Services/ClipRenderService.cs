@@ -10,26 +10,26 @@ namespace VideoEditorWPF.Services
 {
     public interface IClipRenderService
     {
-        void RenderClips(Canvas canvas, IEnumerable<Clip> clips, double trackTop);
+        void RenderClips(Canvas canvas, IEnumerable<Clip> clips, double trackTop, double timelineScale);
     }
 
     public class ClipRenderService : IClipRenderService
     {
-        public void RenderClips(Canvas canvas, IEnumerable<Clip> clips, double trackTop)
+        public void RenderClips(Canvas canvas, IEnumerable<Clip> clips, double trackTop, double timelineScale)
         {
             foreach (var clip in clips)
             {
-                RenderClip(canvas, clip, trackTop);
+                RenderClip(canvas, clip, trackTop, timelineScale);
             }
         }
 
-        private void RenderClip(Canvas canvas, Clip clip, double top)
+        private void RenderClip(Canvas canvas, Clip clip, double top, double timelineScale)
         {
             Brush color = clip.IsVideoClip ? Brushes.DodgerBlue : Brushes.Orange;
 
             var rect = new Rectangle
             {
-                Width = clip.Width,
+                Width = clip.GetWidth(timelineScale),
                 Height = 40,
                 Fill = color,
                 RadiusX = 5,
@@ -37,7 +37,7 @@ namespace VideoEditorWPF.Services
                 Tag = clip
             };
 
-            Canvas.SetLeft(rect, clip.OffsetPixels);
+            Canvas.SetLeft(rect, clip.GetOffsetPixels(timelineScale));
             Canvas.SetTop(rect, top);
             Canvas.SetZIndex(rect, 10);
             canvas.Children.Add(rect);
@@ -53,7 +53,7 @@ namespace VideoEditorWPF.Services
                 Tag = clip
             };
 
-            Canvas.SetLeft(label, clip.OffsetPixels + 5);
+            Canvas.SetLeft(label, clip.GetOffsetPixels(timelineScale) + 5);
             Canvas.SetTop(label, top + 15);
             Canvas.SetZIndex(label, 11);
             canvas.Children.Add(label);
