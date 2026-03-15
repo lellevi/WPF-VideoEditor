@@ -81,6 +81,7 @@ namespace VideoEditorWPF
         private void SetupEventHandlers()
         {
             TimelineScrollViewer.MouseWheel += TimelineScrollViewer_MouseWheel;
+            TimelineScrollViewer.SizeChanged += TimelineScrollViewer_SizeChanged;
 
             ViewModel.Timeline.Tracks.CollectionChanged += Tracks_CollectionChanged;
             foreach (var track in ViewModel.Timeline.Tracks)
@@ -95,14 +96,103 @@ namespace VideoEditorWPF
             Closing += Window_Closing;
         }
 
+        private void TimelineScrollViewer_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (e.WidthChanged && ViewModel?.Timeline != null)
+            {
+                double viewportWidth = GetTimelineViewportWidth();
+                if (viewportWidth > 0)
+                {
+                    ViewModel.Timeline.SetMinimumScale(viewportWidth);
+                    RefreshTimeline();
+                }
+            }
+        }
+
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            RefreshTimeline();
+            // Force layout update to ensure ViewportWidth is calculated
+            UpdateLayout();
+            TimelineScrollViewer.UpdateLayout();
+
+            // Wait for rendering to complete
+            Dispatcher.InvokeAsync(() =>
+            {
+                // Initialize minimum scale after viewport is ready
+                if (ViewModel?.Timeline != null)
+                {
+                    double viewportWidth = GetTimelineViewportWidth();
+                    if (viewportWidth > 0)
+                    {
+                        ViewModel.Timeline.SetMinimumScale(viewportWidth);
+                    }
+                }
+
+                RefreshTimeline();
+            }, System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
+        private double GetTimelineViewportWidth()
+        {
+            // Try ViewportWidth first
+            if (TimelineScrollViewer.ViewportWidth > 0)
+                return TimelineScrollViewer.ViewportWidth;
+
+            // Fallback to ActualWidth (for fullscreen initial render)
+            if (TimelineScrollViewer.ActualWidth > 0)
+                return TimelineScrollViewer.ActualWidth;
+
+            // Last resort: calculate from grid column
+            return 0;
+        }
+
+        private void RefreshTimeline()
+        {
+            // Get reliable viewport width
+            double viewportWidth = GetTimelineViewportWidth();
+
+            if (viewportWidth == 0)
+            {
+                // Retry after layout is complete
+                Dispatcher.InvokeAsync(() => RefreshTimeline(), System.Windows.Threading.DispatcherPriority.Loaded);
+                return;
+            }
+
+            // Calculate dynamic canvas width based on timeline length and scale
+            // Add 50 pixels padding at the end to ensure the last label is visible
+            const double endPadding = 50;
+            double timelineWidth = (ViewModel.Timeline.TimelineLength * ViewModel.Timeline.TimelineScale) + endPadding;
+
+            // Ensure canvas is at least as wide as viewport to prevent centering/offset
+            double canvasWidth = Math.Max(timelineWidth, viewportWidth);
+
+            // Update ruler canvas width
+            TimeRulerCanvas.Width = canvasWidth;
+            TimeRulerCanvas.Children.Clear();
+            _timelineRenderService.RenderTimeline(TimeRulerCanvas, ViewModel.Timeline.TimelineScale, viewportWidth, ViewModel.Timeline.TimelineLength);
+
+            // Add playhead to ruler after rendering
+            var rulerPlayhead = new Rectangle
+            {
+                Width = 3,
+                Height = 35,
+                Fill = new SolidColorBrush(Colors.Red),
+                Name = "RulerPlayhead"
+            };
+            Canvas.SetLeft(rulerPlayhead, ViewModel.Timeline.PlayheadPosition);
+            Canvas.SetZIndex(rulerPlayhead, 1000);
+            TimeRulerCanvas.Children.Add(rulerPlayhead);
+
+            // Update timeline canvas width
+            TimelineCanvas.Width = canvasWidth;
+
+            RefreshTracks();
         }
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             TimelineScrollViewer.MouseWheel -= TimelineScrollViewer_MouseWheel;
+            TimelineScrollViewer.SizeChanged -= TimelineScrollViewer_SizeChanged;
 
             ViewModel.Timeline.Tracks.CollectionChanged -= Tracks_CollectionChanged;
             foreach (var track in ViewModel.Timeline.Tracks)
@@ -196,30 +286,13 @@ namespace VideoEditorWPF
             }
         }
 
-        private void RefreshTimeline()
-        {
-            TimeRulerCanvas.Children.Clear();
-            _timelineRenderService.RenderTimeline(TimeRulerCanvas, ViewModel.Timeline.TimelineScale, TimelineScrollViewer.ViewportWidth);
-
-            // Add playhead to ruler after rendering
-            var rulerPlayhead = new Rectangle
-            {
-                Width = 3,
-                Height = 35,
-                Fill = new SolidColorBrush(Colors.Red),
-                Name = "RulerPlayhead"
-            };
-            Canvas.SetLeft(rulerPlayhead, ViewModel.Timeline.PlayheadPosition);
-            Canvas.SetZIndex(rulerPlayhead, 1000);
-            TimeRulerCanvas.Children.Add(rulerPlayhead);
-
-            RefreshTracks();
-        }
-
         private void RefreshTracks()
         {
             _trackRenderService.ClearTracks(TimelineCanvas);
-            _trackRenderService.RenderTracks(TimelineCanvas, ViewModel.Timeline.Tracks, TimelineScrollViewer.ViewportWidth, ViewModel.Timeline.TimelineScale);
+
+            // Pass the canvas width (without padding for track backgrounds)
+            double canvasWidth = ViewModel.Timeline.TimelineLength * ViewModel.Timeline.TimelineScale;
+            _trackRenderService.RenderTracks(TimelineCanvas, ViewModel.Timeline.Tracks, canvasWidth, ViewModel.Timeline.TimelineScale);
             DrawTrackSeparators();
         }
 
@@ -234,6 +307,9 @@ namespace VideoEditorWPF
                 TimelineCanvas.Children.Remove(line);
             }
 
+            // Calculate dynamic width based on timeline length and scale
+            double separatorWidth = ViewModel.Timeline.TimelineLength * ViewModel.Timeline.TimelineScale;
+
             // Draw horizontal separator lines between tracks
             for (int i = 0; i < ViewModel.Timeline.Tracks.Count; i++)
             {
@@ -243,7 +319,7 @@ namespace VideoEditorWPF
                 {
                     X1 = 0,
                     Y1 = y,
-                    X2 = 4000,
+                    X2 = separatorWidth,
                     Y2 = y,
                     Stroke = new SolidColorBrush(Color.FromRgb(62, 62, 66)), // #FF3E3E42
                     StrokeThickness = 1,
@@ -350,6 +426,7 @@ namespace VideoEditorWPF
         {
             if (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl))
             {
+                // The TimelineScale property setter will handle min/max constraints
                 ViewModel.Timeline.TimelineScale *= e.Delta > 0 ? 1.414 : 0.707;
                 e.Handled = true;
             }
@@ -364,6 +441,7 @@ namespace VideoEditorWPF
         {
             if (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl))
             {
+                // The TimelineScale property setter will handle min/max constraints
                 ViewModel.Timeline.TimelineScale *= e.Delta > 0 ? 1.414 : 0.707;
                 e.Handled = true;
             }

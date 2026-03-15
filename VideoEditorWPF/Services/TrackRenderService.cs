@@ -10,7 +10,7 @@ namespace VideoEditorWPF.Services
 {
     public interface ITrackRenderService
     {
-        void RenderTracks(Canvas canvas, IEnumerable<Track> tracks, double viewportWidth, double timelineScale);
+        void RenderTracks(Canvas canvas, IEnumerable<Track> tracks, double canvasWidth, double timelineScale);
         void ClearTracks(Canvas canvas);
     }
 
@@ -27,13 +27,13 @@ namespace VideoEditorWPF.Services
             _clipRenderService = clipRenderService;
         }
 
-        public void RenderTracks(Canvas canvas, IEnumerable<Track> tracks, double viewportWidth, double timelineScale)
+        public void RenderTracks(Canvas canvas, IEnumerable<Track> tracks, double canvasWidth, double timelineScale)
         {
             double currentY = TRACK_HEADER_HEIGHT + TRACK_GAP;
 
             foreach (var track in tracks)
             {
-                DrawTrackHeader(canvas, track, currentY, viewportWidth);
+                DrawTrackBackground(canvas, currentY, canvasWidth);
                 _clipRenderService.RenderClips(canvas, track.Clips, currentY, timelineScale);
                 currentY += TRACK_HEIGHT + TRACK_GAP;
             }
@@ -55,37 +55,20 @@ namespace VideoEditorWPF.Services
             }
         }
 
-        private void DrawTrackHeader(Canvas canvas, Track track, double y, double viewportWidth)
+        private void DrawTrackBackground(Canvas canvas, double y, double canvasWidth)
         {
-            Color headerColor = track.Type == MediaType.Video
-                ? Color.FromRgb(45, 45, 80)
-                : Color.FromRgb(45, 65, 45);
-
-            var headerBg = new Rectangle
+            // Draw a subtle background for the track area
+            var trackBg = new Rectangle
             {
-                Width = viewportWidth * 2,
-                Height = TRACK_HEADER_HEIGHT,
-                Fill = new SolidColorBrush(headerColor),
-                Stroke = Brushes.Gray,
-                StrokeThickness = 1
+                Width = canvasWidth,
+                Height = TRACK_HEIGHT,
+                Fill = new SolidColorBrush(Color.FromRgb(35, 35, 35)),
+                Opacity = 0.3
             };
-            Canvas.SetLeft(headerBg, 0);
-            Canvas.SetTop(headerBg, y);
-            Canvas.SetZIndex(headerBg, 0);
-            canvas.Children.Add(headerBg);
-
-            string trackTypeIcon = track.Type == MediaType.Video ? "🎬" : "🎵";
-            var label = new TextBlock
-            {
-                Text = $"{trackTypeIcon} {track.Name ?? (track.Type == MediaType.Video ? "Video" : "Audio")}",
-                Foreground = Brushes.White,
-                FontSize = 12,
-                FontWeight = FontWeights.Bold
-            };
-            Canvas.SetLeft(label, 10);
-            Canvas.SetTop(label, y + 5);
-            Canvas.SetZIndex(label, 1000);
-            canvas.Children.Add(label);
+            Canvas.SetLeft(trackBg, 0);
+            Canvas.SetTop(trackBg, y);
+            Canvas.SetZIndex(trackBg, -10);
+            canvas.Children.Add(trackBg);
         }
     }
 }

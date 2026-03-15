@@ -144,7 +144,7 @@
                         <ScrollViewer x:Name="TimeRulerScrollViewer"
                                       HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollBarVisibility="Disabled">
-                            <Canvas x:Name="TimeRulerCanvas" Width="4000" Height="35" Background="Transparent"
+                            <Canvas x:Name="TimeRulerCanvas" Height="35" Background="Transparent"
                                     MouseLeftButtonDown="TimeRulerCanvas_MouseLeftButtonDown"/>
                         </ScrollViewer>
                     </Border>
@@ -229,7 +229,7 @@
                         </ScrollViewer>
                     </Border>
 
-                    <!-- Timeline Canvas (Bottom Right) - REMOVED RECTANGLES -->
+                    <!-- Timeline Canvas (Bottom Right) -->
                     <ScrollViewer Grid.Row="1" Grid.Column="1"
                                   x:Name="TimelineScrollViewer"
                                   HorizontalScrollBarVisibility="Auto"
@@ -238,7 +238,6 @@
                                   Background="#FF1E1E1E"
                                   ScrollChanged="TimelineScrollViewer_ScrollChanged">
                         <Canvas x:Name="TimelineCanvas"
-                                Width="4000"
                                 Height="{Binding Timeline.CalculatedHeight}"
                                 VerticalAlignment="Top"
                                 Background="#FF2D2D2D"

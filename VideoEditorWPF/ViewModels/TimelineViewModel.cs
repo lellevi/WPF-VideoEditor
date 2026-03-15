@@ -22,6 +22,9 @@ namespace VideoEditorWPF.ViewModels
 
         private readonly IClipFactory _clipFactory;
 
+        private double _timelineLength = 30.0;
+        private double _viewportWidth = 0; // Will be set when window loads
+
         public ObservableCollection<Track> Tracks { get; }
 
         public Track SelectedTrack
@@ -58,13 +61,44 @@ namespace VideoEditorWPF.ViewModels
             }
         }
 
+        public void SetMinimumScale(double viewportWidth)
+        {
+            if (viewportWidth <= 0) return;
+
+            _viewportWidth = viewportWidth;
+
+            // Calculate the minimum scale that fits the entire timeline in viewport
+            double dynamicMinScale = viewportWidth / _timelineLength;
+
+            // If current scale is below the minimum, adjust it
+            if (_timelineScale < dynamicMinScale)
+            {
+                TimelineScale = dynamicMinScale;
+            }
+            else
+            {
+                // Just trigger a refresh to validate the current scale
+                OnPropertyChanged(nameof(TimelineScale));
+            }
+        }
+
         public double TimelineScale
         {
             get => _timelineScale;
             set
             {
-                value = Math.Max(MinScale, Math.Min(MaxScale, value));
-                if (_timelineScale != value)
+                // Calculate dynamic minimum scale to fit entire timeline in viewport
+                double dynamicMinScale = MinScale;
+
+                if (_viewportWidth > 0 && _timelineLength > 0)
+                {
+                    dynamicMinScale = Math.Max(MinScale, _viewportWidth / _timelineLength);
+                }
+
+                // Clamp value between effective minimum and maximum
+                value = Math.Max(dynamicMinScale, Math.Min(MaxScale, value));
+
+                if (Math.Abs(_timelineScale - value) > 0.001) // Use epsilon comparison for doubles
                 {
                     _timelineScale = value;
                     OnPropertyChanged();
@@ -265,6 +299,30 @@ namespace VideoEditorWPF.ViewModels
         private void ZoomOut()
         {
             TimelineScale /= 1.1;
+        }
+
+        public double TimelineLength
+        {
+            get => _timelineLength;
+            set
+            {
+                if (_timelineLength != value)
+                {
+                    _timelineLength = value;
+                    OnPropertyChanged();
+
+                    // Revalidate scale when timeline length changes
+                    if (_viewportWidth > 0)
+                    {
+                        // Recalculate minimum and apply if needed
+                        double dynamicMinScale = _viewportWidth / _timelineLength;
+                        if (_timelineScale < dynamicMinScale)
+                        {
+                            TimelineScale = dynamicMinScale;
+                        }
+                    }
+                }
+            }
         }
     }
 }
