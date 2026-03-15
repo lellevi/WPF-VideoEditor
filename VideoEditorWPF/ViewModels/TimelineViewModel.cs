@@ -231,12 +231,12 @@ namespace VideoEditorWPF.ViewModels
             double startTimeSeconds = PlayheadTimeSeconds;
 
             var overlappingClip = track.Clips.FirstOrDefault(c =>
-                startTimeSeconds >= c.StartTimeSeconds &&
-                startTimeSeconds < c.StartTimeSeconds + c.DurationSeconds);
+                startTimeSeconds >= c.OffsetSeconds &&
+                startTimeSeconds < c.OffsetSeconds + c.DurationSeconds);
 
             if (overlappingClip != null)
             {
-                startTimeSeconds = overlappingClip.StartTimeSeconds + overlappingClip.DurationSeconds;
+                startTimeSeconds = overlappingClip.OffsetSeconds + overlappingClip.DurationSeconds;
             }
 
             int trackIndex = Tracks.IndexOf(track);
@@ -251,7 +251,7 @@ namespace VideoEditorWPF.ViewModels
             {
                 foreach (var clip in track.Clips)
                 {
-                    clip.StartX = clip.StartTimeSeconds * TimelineScale;
+                    clip.OffsetPixels = clip.OffsetSeconds * TimelineScale;
                     clip.Width = clip.DurationSeconds * TimelineScale;
                 }
             }
@@ -259,8 +259,8 @@ namespace VideoEditorWPF.ViewModels
 
         public void UpdateClipTimePosition(Clip clip, double newStartX)
         {
-            clip.StartX = newStartX;
-            clip.StartTimeSeconds = newStartX / TimelineScale;
+            clip.OffsetPixels = newStartX;
+            clip.OffsetSeconds = newStartX / TimelineScale;
         }
 
         public double CalculatedHeight => Tracks.Count * 70; // 70px per track

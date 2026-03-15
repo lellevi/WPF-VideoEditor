@@ -291,7 +291,7 @@ namespace VideoEditorWPF.ViewModels
             {
                 foreach (var clip in track.Clips)
                 {
-                    var clipEnd = clip.StartTimeSeconds + clip.DurationSeconds;
+                    var clipEnd = clip.OffsetSeconds + clip.DurationSeconds;
                     if (clipEnd > maxDuration)
                         maxDuration = clipEnd;
                 }

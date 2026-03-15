@@ -37,7 +37,7 @@ namespace VideoEditorWPF.Services
                 Tag = clip
             };
 
-            Canvas.SetLeft(rect, clip.StartX);
+            Canvas.SetLeft(rect, clip.OffsetPixels);
             Canvas.SetTop(rect, top);
             Canvas.SetZIndex(rect, 10);
             canvas.Children.Add(rect);
@@ -53,7 +53,7 @@ namespace VideoEditorWPF.Services
                 Tag = clip
             };
 
-            Canvas.SetLeft(label, clip.StartX + 5);
+            Canvas.SetLeft(label, clip.OffsetPixels + 5);
             Canvas.SetTop(label, top + 15);
             Canvas.SetZIndex(label, 11);
             canvas.Children.Add(label);

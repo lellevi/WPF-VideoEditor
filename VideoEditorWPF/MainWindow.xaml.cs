@@ -270,17 +270,17 @@ namespace VideoEditorWPF
                 var currentPos = e.GetPosition(TimelineCanvas);
                 var deltaX = currentPos.X - _lastMousePos.X;
 
-                double newStartX = Math.Max(0, _draggedClip.StartX + deltaX);
+                double newStartX = Math.Max(0, _draggedClip.OffsetPixels + deltaX);
                 ViewModel.Timeline.UpdateClipTimePosition(_draggedClip, newStartX);
 
                 if (_draggedVisual != null)
                 {
-                    Canvas.SetLeft(_draggedVisual, _draggedClip.StartX);
+                    Canvas.SetLeft(_draggedVisual, _draggedClip.OffsetPixels);
                 }
 
                 if (_draggedLabel != null)
                 {
-                    Canvas.SetLeft(_draggedLabel, _draggedClip.StartX + 5);
+                    Canvas.SetLeft(_draggedLabel, _draggedClip.OffsetPixels + 5);
                 }
 
                 _lastMousePos = currentPos;
@@ -342,6 +342,15 @@ namespace VideoEditorWPF
             {
                 TimeRulerScrollViewer.ScrollToHorizontalOffset(e.HorizontalOffset);
             }
+        }
+
+        private void TimeRulerCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var clickPosition = e.GetPosition(TimeRulerCanvas);
+
+            ViewModel.Timeline.PlayheadPosition = clickPosition.X;
+
+            e.Handled = true;
         }
     }
 }

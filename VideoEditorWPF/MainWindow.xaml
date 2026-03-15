@@ -144,7 +144,8 @@
                         <ScrollViewer x:Name="TimeRulerScrollViewer"
                                       HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollBarVisibility="Disabled">
-                            <Canvas x:Name="TimeRulerCanvas" Width="4000" Height="35" Background="Transparent"/>
+                            <Canvas x:Name="TimeRulerCanvas" Width="4000" Height="35" Background="Transparent"
+                                    MouseLeftButtonDown="TimeRulerCanvas_MouseLeftButtonDown"/>
                         </ScrollViewer>
                     </Border>
 

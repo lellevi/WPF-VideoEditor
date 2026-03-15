@@ -164,8 +164,8 @@ namespace VideoEditorWPF.Services
 
                 foreach (var clip in track.Clips)
                 {
-                    double clipStart = clip.StartTimeSeconds;
-                    double clipEnd = clip.StartTimeSeconds + clip.DurationSeconds;
+                    double clipStart = clip.OffsetSeconds;
+                    double clipEnd = clip.OffsetSeconds + clip.DurationSeconds;
 
                     // Проверяем, активен ли клип в текущий момент
                     if (currentSeconds >= clipStart && currentSeconds < clipEnd)
