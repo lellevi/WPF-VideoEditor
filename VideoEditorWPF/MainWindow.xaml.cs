@@ -122,6 +122,7 @@ namespace VideoEditorWPF
             if (e.PropertyName == nameof(ViewModel.Timeline.PlayheadPosition))
             {
                 UpdateRulerPlayhead();
+                UpdateTimelinePlayhead();  // Add this line
             }
         }
 
@@ -133,6 +134,17 @@ namespace VideoEditorWPF
             if (playhead != null)
             {
                 Canvas.SetLeft(playhead, ViewModel.Timeline.PlayheadPosition);
+            }
+        }
+
+        /// <summary>
+        /// Updates the timeline canvas playhead position
+        /// </summary>
+        private void UpdateTimelinePlayhead()
+        {
+            if (Playhead != null)
+            {
+                Canvas.SetLeft(Playhead, ViewModel.Timeline.PlayheadPosition);
             }
         }
 
