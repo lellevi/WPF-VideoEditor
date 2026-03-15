@@ -16,7 +16,7 @@ namespace VideoEditorWPF.Services
 
     public class TrackRenderService : ITrackRenderService
     {
-        private const double TRACK_HEIGHT = 70; // Match MainWindow.xaml track height
+        private const double TrackHeight = 70; // Match MainWindow.xaml track height
 
         private readonly IClipRenderService _clipRenderService;
 
@@ -30,7 +30,7 @@ namespace VideoEditorWPF.Services
             int trackIndex = 0;
             foreach (var track in tracks)
             {
-                double trackY = trackIndex * TRACK_HEIGHT;
+                double trackY = trackIndex * TrackHeight;
                 DrawTrackBackground(canvas, trackY, canvasWidth);
                 _clipRenderService.RenderClips(canvas, track.Clips, trackY, timelineScale);
                 trackIndex++;
@@ -42,6 +42,10 @@ namespace VideoEditorWPF.Services
             var toRemove = canvas.Children.OfType<UIElement>()
                 .Where(e =>
                 {
+                    int zIndex = Canvas.GetZIndex(e);
+                    // Don't remove snap indicators (Z-Index > 1000)
+                    if (zIndex > 1000) return false;
+
                     double top = Canvas.GetTop(e);
                     return !double.IsNaN(top) && top >= 0;
                 })
@@ -59,7 +63,7 @@ namespace VideoEditorWPF.Services
             var trackBg = new Rectangle
             {
                 Width = canvasWidth,
-                Height = TRACK_HEIGHT,
+                Height = TrackHeight,
                 Fill = new SolidColorBrush(Color.FromRgb(35, 35, 35)),
                 Opacity = 0.3
             };
