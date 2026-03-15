@@ -203,15 +203,15 @@
                     </Button.Style>
                 </Button>
                 <Button Command="{Binding Preview.NextFrameCommand}" Content="⏭" Width="45" Height="35" Margin="5"/>
-                <TextBlock x:Name="CurrentTimeLabel" 
+                <TextBlock x:Name="CurrentTimeLabel"
                       Text="{Binding Preview.CurrentTime, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
                       Margin="25,0,15,0" VerticalAlignment="Center" FontWeight="Bold"/>
                 <Slider x:Name="TimelineSlider" Width="250" Height="25" Margin="10,0"
-                    Minimum="0" 
+                    Minimum="0"
                     Maximum="{Binding Preview.TotalDuration.TotalSeconds}"
                     Value="{Binding Preview.CurrentTimeSeconds, Mode=TwoWay}"/>
-                <TextBlock x:Name="TotalTimeLabel" 
-                      Text="{Binding Preview.TotalDuration, StringFormat={}{0:hh\\:mm\\:ss}}" 
+                <TextBlock x:Name="TotalTimeLabel"
+                      Text="{Binding Preview.TotalDuration, StringFormat={}{0:hh\\:mm\\:ss}}"
                       Margin="10,0" VerticalAlignment="Center"/>
             </StackPanel>
 

@@ -11,11 +11,11 @@ namespace VideoEditorWPF.ViewModels
 {
     public class TimelineViewModel : ViewModelBase
     {
-        private const double DEFAULT_SCALE = 3.0;
-        private const double MIN_SCALE = 0.5;
-        private const double MAX_SCALE = 200.0;
+        private const double DefaultScale = 3.0;
+        private const double MinScale = 0.01;
+        private const double MaxScale = 200.0;
 
-        private double _timelineScale = DEFAULT_SCALE;
+        private double _timelineScale = DefaultScale;
         private double _playheadPosition = 0;
         private bool _isPlaying;
         private Track _selectedTrack;
@@ -63,7 +63,7 @@ namespace VideoEditorWPF.ViewModels
             get => _timelineScale;
             set
             {
-                value = Math.Max(MIN_SCALE, Math.Min(MAX_SCALE, value));
+                value = Math.Max(MinScale, Math.Min(MaxScale, value));
                 if (_timelineScale != value)
                 {
                     _timelineScale = value;

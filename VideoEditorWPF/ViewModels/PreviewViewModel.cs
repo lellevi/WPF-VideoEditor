@@ -11,10 +11,8 @@ namespace VideoEditorWPF.ViewModels
     /// </summary>
     public class PreviewViewModel : ViewModelBase
     {
-        // === КОНСТАНТЫ ===
         private const int DEFAULT_FPS = 24;
 
-        // === ПОЛЯ ===
         private readonly TimelineViewModel _timeline;
         private readonly DispatcherTimer _renderTimer;
 
@@ -24,18 +22,8 @@ namespace VideoEditorWPF.ViewModels
         private int _previewFPS;
         private DateTime _lastUpdateTime;
 
-        // === СОБЫТИЯ ===
-        /// <summary>
-        /// Событие вызывается когда нужен новый кадр для отображения
-        /// Параметр: время (TimeSpan) для которого нужен кадр
-        /// </summary>
         public event Action<TimeSpan> PreviewFrameNeeded;
 
-        // === СВОЙСТВА ===
-
-        /// <summary>
-        /// Идет ли воспроизведение
-        /// </summary>
         public bool IsPlaying
         {
             get => _isPlaying;
@@ -59,10 +47,6 @@ namespace VideoEditorWPF.ViewModels
             }
         }
 
-        /// <summary>
-        /// Текущее время воспроизведения
-        /// Связано двунаправленно с Timeline.PlayheadPosition
-        /// </summary>
         public TimeSpan CurrentTime
         {
             get => _currentTime;
@@ -86,9 +70,6 @@ namespace VideoEditorWPF.ViewModels
             }
         }
 
-        /// <summary>
-        /// Текущее время в секундах (для TwoWay binding с Slider)
-        /// </summary>
         public double CurrentTimeSeconds
         {
             get => _currentTime.TotalSeconds;
@@ -102,9 +83,6 @@ namespace VideoEditorWPF.ViewModels
             }
         }
 
-        /// <summary>
-        /// Частота кадров для превью (по умолчанию 24 fps)
-        /// </summary>
         public int PreviewFPS
         {
             get => _previewFPS;
@@ -124,9 +102,6 @@ namespace VideoEditorWPF.ViewModels
             }
         }
 
-        /// <summary>
-        /// Общая длительность таймлайна
-        /// </summary>
         public TimeSpan TotalDuration
         {
             get => _totalDuration;
@@ -140,47 +115,32 @@ namespace VideoEditorWPF.ViewModels
             }
         }
 
-        // === КОМАНДЫ ===
         public ICommand PlayPauseCommand { get; }
         public ICommand NextFrameCommand { get; }
         public ICommand PreviousFrameCommand { get; }
         public ICommand SeekCommand { get; }
 
-        // === КОНСТРУКТОР ===
-
-        /// <summary>
-        /// Создает PreviewViewModel с привязкой к TimelineViewModel
-        /// </summary>
-        /// <param name="timeline">TimelineViewModel для синхронизации</param>
         public PreviewViewModel(TimelineViewModel timeline)
         {
             _timeline = timeline ?? throw new ArgumentNullException(nameof(timeline));
             _previewFPS = DEFAULT_FPS;
             _currentTime = TimeSpan.Zero;
-            _totalDuration = TimeSpan.FromMinutes(5); // По умолчанию
+            _totalDuration = TimeSpan.FromMinutes(5);
 
-            // Создаем таймер для рендеринга
             _renderTimer = new DispatcherTimer(DispatcherPriority.Render)
             {
                 Interval = TimeSpan.FromMilliseconds(1000.0 / _previewFPS)
             };
             _renderTimer.Tick += OnRenderTick;
 
-            // Инициализируем команды
             PlayPauseCommand = new RelayCommand(ExecutePlayPause);
             NextFrameCommand = new RelayCommand(ExecuteNextFrame);
             PreviousFrameCommand = new RelayCommand(ExecutePreviousFrame);
             SeekCommand = new RelayCommand(ExecuteSeek, CanExecuteSeek);
 
-            // Подписываемся на изменения Timeline
             SubscribeToTimelineChanges();
         }
 
-        // === ПРИВАТНЫЕ МЕТОДЫ ===
-
-        /// <summary>
-        /// Подписывается на изменения в Timeline для синхронизации
-        /// </summary>
         private void SubscribeToTimelineChanges()
         {
             if (_timeline == null)
@@ -205,9 +165,6 @@ namespace VideoEditorWPF.ViewModels
             };
         }
 
-        /// <summary>
-        /// Обработчик тика таймера - вызывается каждый кадр при воспроизведении
-        /// </summary>
         private void OnRenderTick(object sender, EventArgs e)
         {
             if (!_isPlaying)
@@ -231,36 +188,22 @@ namespace VideoEditorWPF.ViewModels
             CurrentTime = newTime;
         }
 
-        /// <summary>
-        /// Запускает воспроизведение
-        /// </summary>
         private void StartPlayback()
         {
             _lastUpdateTime = DateTime.Now;
             _renderTimer.Start();
         }
 
-        /// <summary>
-        /// Останавливает воспроизведение
-        /// </summary>
         private void StopPlayback()
         {
             _renderTimer.Stop();
         }
 
-        /// <summary>
-        /// Запрашивает кадр для указанного времени
-        /// </summary>
         private void RequestFrame(TimeSpan time)
         {
             PreviewFrameNeeded?.Invoke(time);
         }
 
-        // === КОНВЕРТАЦИЯ КООРДИНАТ ===
-
-        /// <summary>
-        /// Конвертирует TimeSpan в пиксели на таймлайне
-        /// </summary>
         private double TimeSpanToPixels(TimeSpan time)
         {
             if (_timeline == null)
@@ -269,9 +212,6 @@ namespace VideoEditorWPF.ViewModels
             return time.TotalSeconds * _timeline.TimelineScale;
         }
 
-        /// <summary>
-        /// Конвертирует пиксели на таймлайне в TimeSpan
-        /// </summary>
         private TimeSpan PixelsToTimeSpan(double pixels)
         {
             if (_timeline == null || _timeline.TimelineScale <= 0)
@@ -281,19 +221,11 @@ namespace VideoEditorWPF.ViewModels
             return TimeSpan.FromSeconds(seconds);
         }
 
-        // === ВЫПОЛНЕНИЕ КОМАНД ===
-
-        /// <summary>
-        /// Переключает воспроизведение/паузу
-        /// </summary>
         private void ExecutePlayPause(object parameter)
         {
             IsPlaying = !IsPlaying;
         }
 
-        /// <summary>
-        /// Переходит к следующему кадру
-        /// </summary>
         private void ExecuteNextFrame(object parameter)
         {
             // Один кадр = 1/FPS секунды
@@ -306,9 +238,6 @@ namespace VideoEditorWPF.ViewModels
             CurrentTime = newTime;
         }
 
-        /// <summary>
-        /// Переходит к предыдущему кадру
-        /// </summary>
         private void ExecutePreviousFrame(object parameter)
         {
             // Один кадр = 1/FPS секунды
@@ -321,9 +250,6 @@ namespace VideoEditorWPF.ViewModels
             CurrentTime = newTime;
         }
 
-        /// <summary>
-        /// Переход к указанному времени
-        /// </summary>
         private void ExecuteSeek(object parameter)
         {
             if (parameter is TimeSpan seekTime)
@@ -342,28 +268,17 @@ namespace VideoEditorWPF.ViewModels
             }
         }
 
-        /// <summary>
-        /// Проверяет, можно ли выполнить команду Seek
-        /// </summary>
         private bool CanExecuteSeek(object parameter)
         {
-            return true; // Всегда можно
+            return true;
         }
 
-        // === ПУБЛИЧНЫЕ МЕТОДЫ ===
-
-        /// <summary>
-        /// Сбрасывает воспроизведение в начало
-        /// </summary>
         public void Reset()
         {
             IsPlaying = false;
             CurrentTime = TimeSpan.Zero;
         }
 
-        /// <summary>
-        /// Обновляет общую длительность на основе клипов в Timeline
-        /// </summary>
         public void UpdateTotalDuration()
         {
             if (_timeline?.Tracks == null)
