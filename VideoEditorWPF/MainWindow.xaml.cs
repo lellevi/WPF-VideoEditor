@@ -161,12 +161,13 @@ namespace VideoEditorWPF
             // Calculate dynamic canvas width based on timeline length and scale
             // Add 50 pixels padding at the end to ensure the last label is visible
             const double endPadding = 50;
-            double timelineWidth = (ViewModel.Timeline.TimelineLength * ViewModel.Timeline.TimelineScale) + endPadding;
+            double baseTimelineWidth = ViewModel.Timeline.TimelineLength * ViewModel.Timeline.TimelineScale;
+            double timelineWidth = baseTimelineWidth + endPadding;
 
             // Ensure canvas is at least as wide as viewport to prevent centering/offset
             double canvasWidth = Math.Max(timelineWidth, viewportWidth);
 
-            // Update ruler canvas width
+            // Update ruler canvas width - set exact width to prevent sub-pixel differences
             TimeRulerCanvas.Width = canvasWidth;
             TimeRulerCanvas.Children.Clear();
             _timelineRenderService.RenderTimeline(TimeRulerCanvas, ViewModel.Timeline.TimelineScale, viewportWidth, ViewModel.Timeline.TimelineLength);
@@ -183,10 +184,55 @@ namespace VideoEditorWPF
             Canvas.SetZIndex(rulerPlayhead, 1000);
             TimeRulerCanvas.Children.Add(rulerPlayhead);
 
-            // Update timeline canvas width
+            // Update timeline canvas width - MUST be exactly the same as ruler
             TimelineCanvas.Width = canvasWidth;
 
             RefreshTracks();
+        }
+
+        private void RefreshTracks()
+        {
+            _trackRenderService.ClearTracks(TimelineCanvas);
+
+            // Use the ACTUAL canvas width to ensure separator lines match
+            double canvasWidth = TimelineCanvas.Width;
+            _trackRenderService.RenderTracks(TimelineCanvas, ViewModel.Timeline.Tracks, canvasWidth, ViewModel.Timeline.TimelineScale);
+            DrawTrackSeparators();
+        }
+
+        private void DrawTrackSeparators()
+        {
+            // Remove old separator lines
+            var oldLines = TimelineCanvas.Children.OfType<Line>()
+                .Where(l => l.Tag?.ToString() == "TrackSeparator")
+                .ToList();
+            foreach (var line in oldLines)
+            {
+                TimelineCanvas.Children.Remove(line);
+            }
+
+            // Use the actual canvas width to ensure lines span the full width
+            double separatorWidth = TimelineCanvas.Width;
+
+            // Draw horizontal separator lines between tracks
+            for (int i = 0; i < ViewModel.Timeline.Tracks.Count; i++)
+            {
+                double y = (i + 1) * 70; // Bottom edge of each track
+
+                var line = new Line
+                {
+                    X1 = 0,
+                    Y1 = y,
+                    X2 = separatorWidth,
+                    Y2 = y,
+                    Stroke = new SolidColorBrush(Color.FromRgb(62, 62, 66)), // #FF3E3E42
+                    StrokeThickness = 1,
+                    Tag = "TrackSeparator"
+                };
+
+                Canvas.SetZIndex(line, -1); // Behind clips
+                TimelineCanvas.Children.Add(line);
+            }
         }
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
@@ -283,51 +329,6 @@ namespace VideoEditorWPF
             if (MediaLibraryList.SelectedItem is MediaFile mediaFile)
             {
                 ViewModel.Timeline.AddClipToTrack(mediaFile);
-            }
-        }
-
-        private void RefreshTracks()
-        {
-            _trackRenderService.ClearTracks(TimelineCanvas);
-
-            // Pass the canvas width (without padding for track backgrounds)
-            double canvasWidth = ViewModel.Timeline.TimelineLength * ViewModel.Timeline.TimelineScale;
-            _trackRenderService.RenderTracks(TimelineCanvas, ViewModel.Timeline.Tracks, canvasWidth, ViewModel.Timeline.TimelineScale);
-            DrawTrackSeparators();
-        }
-
-        private void DrawTrackSeparators()
-        {
-            // Remove old separator lines
-            var oldLines = TimelineCanvas.Children.OfType<Line>()
-                .Where(l => l.Tag?.ToString() == "TrackSeparator")
-                .ToList();
-            foreach (var line in oldLines)
-            {
-                TimelineCanvas.Children.Remove(line);
-            }
-
-            // Calculate dynamic width based on timeline length and scale
-            double separatorWidth = ViewModel.Timeline.TimelineLength * ViewModel.Timeline.TimelineScale;
-
-            // Draw horizontal separator lines between tracks
-            for (int i = 0; i < ViewModel.Timeline.Tracks.Count; i++)
-            {
-                double y = (i + 1) * 70; // Bottom edge of each track
-
-                var line = new Line
-                {
-                    X1 = 0,
-                    Y1 = y,
-                    X2 = separatorWidth,
-                    Y2 = y,
-                    Stroke = new SolidColorBrush(Color.FromRgb(62, 62, 66)), // #FF3E3E42
-                    StrokeThickness = 1,
-                    Tag = "TrackSeparator"
-                };
-
-                Canvas.SetZIndex(line, -1); // Behind clips
-                TimelineCanvas.Children.Add(line);
             }
         }
 
