@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using VideoEditorWPF.Factories;
 using VideoEditorWPF.Models;
@@ -65,13 +66,24 @@ namespace VideoEditorWPF
             ViewModel.Preview.PreviewFrameNeeded += OnPreviewFrameNeeded;
         }
 
-        private void OnPreviewFrameNeeded(TimeSpan time)
+        private async void OnPreviewFrameNeeded(TimeSpan time)
         {
-            if (PreviewCanvas.Source is System.Windows.Media.Imaging.WriteableBitmap bitmap)
+            if (PreviewCanvas.Source is WriteableBitmap bitmap)
             {
-                _previewRenderService.UpdatePreview(bitmap, time, ViewModel.Timeline.Tracks);
+                await _previewRenderService.UpdatePreview(bitmap, time, ViewModel.Timeline.Tracks);
             }
         }
+
+        // При добавлении клипа - запускаем предзагрузку
+        private void MediaLibraryList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (MediaLibraryList.SelectedItem is MediaFile mediaFile)
+            {
+                ViewModel.Timeline.AddClipToTrack(mediaFile);
+                _previewRenderService.PreloadVideoFrames(mediaFile.FilePath); // ✅ Теперь работает!
+            }
+        }
+
 
         private void SetupEventHandlers()
         {
@@ -169,13 +181,6 @@ namespace VideoEditorWPF
             }
         }
 
-        private void MediaLibraryList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-        {
-            if (MediaLibraryList.SelectedItem is MediaFile mediaFile)
-            {
-                ViewModel.Timeline.AddClipToTrack(mediaFile);
-            }
-        }
 
         private void RefreshTimeline()
         {
