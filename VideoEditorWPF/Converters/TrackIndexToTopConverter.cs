@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Data;
 
 namespace VideoEditorWPF.Converters
@@ -22,3 +18,8 @@ namespace VideoEditorWPF.Converters
         }
     }
 }
+// Конвертер для WPF, преобразует индекс трека (int) в позицию Y (Top) в пикселях.
+// Каждый трек занимает 70px высоты (index * 70).
+// Используется для вертикального позиционирования аудио/видео треков в timeline.
+// ConvertBack не реализован (только одностороннее преобразование).
+// TODO?

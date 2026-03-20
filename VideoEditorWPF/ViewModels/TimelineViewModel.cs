@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Input;
@@ -11,11 +12,11 @@ namespace VideoEditorWPF.ViewModels
 {
     public class TimelineViewModel : ViewModelBase
     {
-        private const double DEFAULT_SCALE = 3.0;
-        private const double MIN_SCALE = 0.5;
-        private const double MAX_SCALE = 200.0;
+        private const double DefaultScale = 3.0;
+        private const double MinScale = 0.5;
+        private const double MaxScale = 200.0;
 
-        private double _timelineScale = DEFAULT_SCALE;
+        private double _timelineScale = DefaultScale;
         private double _playheadPosition = 0;
         private bool _isPlaying;
         private Track _selectedTrack;
@@ -62,7 +63,7 @@ namespace VideoEditorWPF.ViewModels
             get => _timelineScale;
             set
             {
-                value = Math.Max(MIN_SCALE, Math.Min(MAX_SCALE, value));
+                value = Math.Max(MinScale, Math.Min(MaxScale, value));
                 if (_timelineScale != value)
                 {
                     _timelineScale = value;
@@ -82,15 +83,13 @@ namespace VideoEditorWPF.ViewModels
                 {
                     _playheadPosition = Math.Max(0, value);
                     OnPropertyChanged();
-                    // ✅ Уведомляем об изменениях зависимых свойств
                     OnPropertyChanged(nameof(PlayheadSeconds));
                     OnPropertyChanged(nameof(CurrentTimeString));
-                    OnPropertyChanged(nameof(TotalDurationSeconds)); // Если нужно
+                    OnPropertyChanged(nameof(TotalDurationSeconds));
                 }
             }
         }
 
-        // ✅ ЕДИНОЕ свойство PlayheadSeconds с TwoWay binding
         public double PlayheadSeconds
         {
             get => PlayheadPosition / TimelineScale;
@@ -100,7 +99,6 @@ namespace VideoEditorWPF.ViewModels
             }
         }
 
-        // ✅ Остальные вычисляемые свойства (только чтение)
         public string CurrentTimeString => TimeSpan.FromSeconds(PlayheadSeconds).ToString(@"hh\:mm\:ss");
         public double TotalDurationSeconds => GetTotalDuration().TotalSeconds;
         public string TotalDurationString => GetTotalDuration().ToString(@"hh\:mm\:ss");
@@ -139,7 +137,6 @@ namespace VideoEditorWPF.ViewModels
                    !SelectedTrack.IsDefault &&
                    Tracks.Count(t => t.Type == SelectedTrack.Type) > 1;
         }
-
 
         private void InitializeDefaultTracks()
         {
@@ -291,28 +288,24 @@ namespace VideoEditorWPF.ViewModels
         public TimeSpan GetTotalDuration()
         {
             double maxEnd = 0;
-            Console.WriteLine($"🔍 Tracks.Count = {Tracks.Count}"); // DEBUG
 
             foreach (var track in Tracks)
             {
-                Console.WriteLine($"  Track '{track.Name}': {track.Clips.Count} clips"); // DEBUG
 
                 foreach (var clip in track.Clips)
                 {
-                    // ✅ Используем clip.DurationSeconds напрямую (НЕ MediaFile!)
                     double endTime = clip.StartTimeSeconds + clip.DurationSeconds;
-                    Console.WriteLine($"    Clip: Start={clip.StartTimeSeconds:F2}s, Duration={clip.DurationSeconds:F2}s, End={endTime:F2}s");
 
-                    if (endTime > maxEnd)
-                        maxEnd = endTime;
+                    if (endTime > maxEnd) maxEnd = endTime;
                 }
             }
 
             var duration = TimeSpan.FromSeconds(maxEnd);
-            Console.WriteLine($"📏 FINAL TotalDuration: {duration.TotalSeconds:F2} сек"); // DEBUG
             return duration;
         }
-
-
     }
 }
+// ViewModel timeline с треками Video/Audio (по умолчанию 1+1).
+// Управляет масштабом (0.5-200 px/s), playhead, добавлением/удалением треков.
+// Автоматическое размещение клипов без перекрытия. Синхронизирует StartX/Width.
+// Вычисляет TotalDuration по max end всех клипов. ReindexTracks при изменениях.

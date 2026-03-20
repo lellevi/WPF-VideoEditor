@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Specialized;
+using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -27,7 +29,6 @@ namespace VideoEditorWPF
         private Rectangle _draggedVisual;
         private TextBlock _draggedLabel;
 
-        // ✅ Определяем сервисы как поля класса
         private readonly IMediaService _mediaService = new MediaService();
         private readonly IDialogService _dialogService = new DialogService();
         private readonly ITimelineService _timelineService = new TimelineService();
@@ -40,23 +41,22 @@ namespace VideoEditorWPF
 
         private void InitializeEverything()
         {
-            // ✅ 1. Создаем ViewModels (PreviewViewModel БЕЗ MediaElement)
             var clipFactory = new ClipFactory();
             var timelineVM = new TimelineViewModel(clipFactory);
-            var previewVM = new PreviewViewModel(timelineVM); // ✅ Только 1 аргумент!
+
+            _previewRenderService = new PreviewRenderService();
+            var previewVM = new PreviewViewModel(timelineVM, _previewRenderService);
 
             ViewModel = new MainViewModel(_mediaService, _dialogService, _timelineService, timelineVM, previewVM);
+
             DataContext = ViewModel;
 
-            // ✅ 2. Инициализируем Render сервисы
             var clipRenderService = new ClipRenderService();
             _trackRenderService = new TrackRenderService(clipRenderService);
             _timelineRenderService = new TimelineRenderService();
-            _previewRenderService = new PreviewRenderService();
 
             PreviewCanvas.Source = _previewRenderService.InitializePreview();
 
-            // ✅ 3. Настраиваем события
             SetupEventHandlers();
             SetupPreviewIntegration();
         }
@@ -74,19 +74,25 @@ namespace VideoEditorWPF
             }
         }
 
-        // При добавлении клипа - запускаем предзагрузку
-        private void MediaLibraryList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        private async void MediaLibraryList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            await MediaLibraryList_MouseDoubleClickAsync(sender, e);
+        }
+
+        private async Task MediaLibraryList_MouseDoubleClickAsync(object sender, MouseButtonEventArgs e)
         {
             if (MediaLibraryList.SelectedItem is MediaFile mediaFile)
             {
-                ViewModel.Timeline.AddClipToTrack(mediaFile);
-                _previewRenderService.PreloadVideoFrames(mediaFile.FilePath); // ✅ Теперь работает!
+                var mediaFileReal = await _mediaService.LoadMediaFileAsync(mediaFile.FilePath);
+
+                ViewModel.Timeline.AddClipToTrack(mediaFileReal);
+                _previewRenderService.PreloadVideoFrames(mediaFileReal.FilePath);
             }
         }
 
-
         private void SetupEventHandlers()
         {
+            MediaLibraryList.MouseDoubleClick += MediaLibraryList_MouseDoubleClick;
             TimelineScrollViewer.MouseWheel += TimelineScrollViewer_MouseWheel;
             ViewModel.Timeline.Tracks.CollectionChanged += Tracks_CollectionChanged;
 
@@ -108,7 +114,6 @@ namespace VideoEditorWPF
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            // Отписываемся от событий
             TimelineScrollViewer.MouseWheel -= TimelineScrollViewer_MouseWheel;
             ViewModel.Timeline.Tracks.CollectionChanged -= Tracks_CollectionChanged;
 
@@ -123,7 +128,6 @@ namespace VideoEditorWPF
             Closing -= Window_Closing;
         }
 
-        // ✅ Остальные методы БЕЗ ИЗМЕНЕНИЙ (копируйте из вашего кода):
         private void Timeline_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
             if (e.PropertyName == nameof(ViewModel.Timeline.PlayheadPosition))
@@ -327,3 +331,7 @@ namespace VideoEditorWPF
         }
     }
 }
+// Главное окно видеоредактора WPF. Code-behind с обработкой drag&drop клипов.
+// Синхронизирует Canvas: TimelineCanvas(треки), TimeRulerCanvas(линейка), PreviewCanvas.
+// Mouse события: drag клипов, Ctrl+Wheel=zoom, обычный Wheel=scroll.
+// Двойной клик по MediaLibraryList → добавляет клип. События MVVM + рендер сервисы.

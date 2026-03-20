@@ -5,7 +5,6 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
 
-
 namespace VideoEditorWPF.Services
 {
     public interface ITimelineRenderService
@@ -134,3 +133,7 @@ namespace VideoEditorWPF.Services
         }
     }
 }
+// Сервис отрисовки линейки timeline (Canvas).
+// Адаптивные тики: major(секунды) + minor по pixelsPerSecond.
+// Форматирование времени (h:mm:ss / mm:ss / ss.ff).
+// TrackHeaderHeight=25px. Очищает только верхнюю область (<25px).

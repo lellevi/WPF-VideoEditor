@@ -2,7 +2,6 @@
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
-using VideoEditorWPF.Services;
 using Xabe.FFmpeg;
 
 namespace VideoEditorWPF
@@ -18,10 +17,8 @@ namespace VideoEditorWPF
         {
             base.OnStartup(e);
 
-            // ✅ ДИНАМИЧЕСКИЙ путь к выходной папке приложения
             FFmpegFolder = AppDomain.CurrentDomain.BaseDirectory;
 
-            // Проверяем наличие FFmpeg
             if (!Directory.Exists(FFmpegFolder) || !File.Exists(Path.Combine(FFmpegFolder, "ffmpeg.exe")))
             {
                 MessageBox.Show($"FFmpeg.exe не найден в {FFmpegFolder}\nСкопируйте ffmpeg.exe в папку с exe", "Ошибка",
@@ -30,11 +27,7 @@ namespace VideoEditorWPF
                 return;
             }
 
-            // Инициализируем Xabe.FFmpeg
             FFmpeg.SetExecutablesPath(FFmpegFolder);
-            Debug.WriteLine($"✅ FFmpeg инициализирован: {FFmpegFolder}");
         }
     }
-
-
 }

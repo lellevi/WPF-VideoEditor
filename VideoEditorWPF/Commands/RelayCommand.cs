@@ -24,3 +24,7 @@ namespace VideoEditorWPF.Commands
         public void Execute(object parameter) => _execute(parameter);
     }
 }
+// Реализация паттерна Command для WPF-приложений.
+// Класс позволяет привязывать действия (Action) к кнопкам, меню и другим UI-элементам.
+// Поддерживает проверку возможности выполнения (CanExecute) и автоматическое обновление состояния UI.
+// Использует CommandManager для отслеживания изменений и инвалидации CanExecute.

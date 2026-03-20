@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
@@ -71,3 +70,7 @@ namespace VideoEditorWPF.Services
         }
     }
 }
+// Сервис отрисовки клипов на Canvas timeline.
+// Создает визуальные Rectangle (видео=синий, аудио=оранжевый) + TextBlock с усеченным именем файла.
+// Устанавливает позицию/размер по StartX/Width, ZIndex для наложения.
+// trackTop - отступ трека по Y. Обрезает длинные имена: "prefix...suffix".

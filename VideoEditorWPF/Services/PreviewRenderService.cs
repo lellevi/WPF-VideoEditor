@@ -11,7 +11,6 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using VideoEditorWPF.Models;
-using Xabe.FFmpeg;
 using Drawing = System.Drawing;
 
 namespace VideoEditorWPF.Services
@@ -33,17 +32,14 @@ namespace VideoEditorWPF.Services
     {
         private readonly string _filePath;
         private readonly int _width = 640, _height = 360;
-
         public VideoDecoder(string filePath) => _filePath = filePath;
-
+        public void Dispose() { }
 
         public async Task<byte[]> GetFrameAsync(string filePath, double timeInSeconds)
         {
             var stopwatch = Stopwatch.StartNew();
             try
             {
-                Debug.WriteLine($"🎬 FFmpeg: {Path.GetFileName(filePath)} t={timeInSeconds:F3}s");
-
                 var ffmpegPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg.exe");
                 var tempPng = Path.Combine(Path.GetTempPath(), $"frame_{Guid.NewGuid():N}.png");
 
@@ -65,27 +61,21 @@ namespace VideoEditorWPF.Services
 
                 if (process.ExitCode == 0 && File.Exists(tempPng))
                 {
-                    // ✅ ЧИТАЕМ БЕЗ БЛОКИРОВКИ + НЕ УДАЛЯЕМ!
                     using var fs = new FileStream(tempPng, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                     using var bitmap = new Drawing.Bitmap(fs);
-                    Debug.WriteLine($"🖼️ Bitmap: {bitmap.Width}x{bitmap.Height}");
 
                     using var resized = new Drawing.Bitmap(bitmap, _width, _height);
                     var result = BitmapToBytes(resized);
 
-                    // ✅ НЕ УДАЛЯЕМ! Temp файлы очистятся системой
-                    Debug.WriteLine($"✅ ✅ ✅ КАДР: {result.Length} bytes");
                     return result;
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"💥 {ex.Message}");
+                throw new ArgumentException($"{ex.Message}");
             }
             return null;
         }
-
-
 
         private byte[] BitmapToBytes(Drawing.Bitmap bitmap)
         {
@@ -103,14 +93,12 @@ namespace VideoEditorWPF.Services
                 bitmap.UnlockBits(data);
             }
         }
-
-        public void Dispose() { }
     }
-
 
     public class PreviewRenderService : IPreviewRenderService
     {
         private int _previewWidth = 640, _previewHeight = 360;
+        private int _previewFPS = 15;
         private readonly ConcurrentDictionary<string, FrameCache> _frameCaches = new();
         private readonly Dictionary<string, VideoDecoder> _videoDecoders = new();
         private CancellationTokenSource _preloadCts = new();
@@ -125,10 +113,9 @@ namespace VideoEditorWPF.Services
 
         public void SetPreviewFPS(int fps)
         {
-            // Пустая реализация
+            _previewFPS = Math.Max(5, Math.Min(60, fps));  // 5-60 FPS
         }
 
-        // ✅ ИСПРАВЛЕННЫЙ метод - правильная работа с nullable tuple
         public async Task UpdatePreview(WriteableBitmap bitmap, TimeSpan currentTime, IEnumerable<Track> tracks)
         {
             if (bitmap == null) return;
@@ -140,27 +127,22 @@ namespace VideoEditorWPF.Services
                 if (activeClipResult.HasValue)
                 {
                     var (clip, timeInClip) = activeClipResult.Value;
-                    Debug.WriteLine($"🔍 Active: {clip.FilePath}, time: {timeInClip:F2}s");
 
-                    // ✅ АСИНХРОННО получаем кадр
                     var frameBytes = await GetOrFetchFrame(clip.FilePath, timeInClip);
 
                     if (frameBytes != null && frameBytes.Length == bitmap.PixelWidth * bitmap.PixelHeight * 4)
                     {
                         bitmap.WritePixels(new Int32Rect(0, 0, _previewWidth, _previewHeight),
                                          frameBytes, _previewWidth * 4, 0);
-                        Debug.WriteLine("✅ ✅ ✅ ВИДЕО КАДР ПОКАЗАН!");
                     }
                     else
                     {
                         DrawAnimatedPreview(bitmap, currentTime);
-                        Debug.WriteLine("❌ Кадр не получен → заглушка");
                     }
                 }
                 else
                 {
                     DrawAnimatedPreview(bitmap, currentTime);
-                    Debug.WriteLine("❌ Нет активного клипа");
                 }
 
                 bitmap.AddDirtyRect(new Int32Rect(0, 0, _previewWidth, _previewHeight));
@@ -171,34 +153,21 @@ namespace VideoEditorWPF.Services
 
         private async Task<byte[]> GetOrFetchFrame(string filePath, double timeInClip)
         {
-            Debug.WriteLine($"🔍 GetOrFetchFrame: {Path.GetFileName(filePath)}, t={timeInClip:F3}s");
-
-            // 1. Кэш
             var cached = GetCachedFrame(filePath, timeInClip);
-            if (cached != null)
-            {
-                Debug.WriteLine("✅ Кэш HIT!");
-                return cached;
-            }
+            if (cached != null) return cached;
 
-            // 2. Создаем decoder
             if (!_videoDecoders.TryGetValue(filePath, out var decoder))
             {
-                Debug.WriteLine("🔧 Создаем новый VideoDecoder");
                 decoder = new VideoDecoder(filePath);
                 _videoDecoders[filePath] = decoder;
             }
 
-            // 3. Вызываем GetFrameAsync
-            Debug.WriteLine("🚀 Вызов GetFrameAsync...");
             var frameBytes = await decoder.GetFrameAsync(filePath, timeInClip);
-
-            Debug.WriteLine($"📤 GetFrameAsync вернул: {(frameBytes != null ? $"{frameBytes.Length} bytes" : "NULL")}");
 
             if (frameBytes != null)
             {
                 EnsureCache(filePath);
-                int cacheKey = (int)(timeInClip * 10) % 600;
+                int cacheKey = (int)(timeInClip * 30);
                 _frameCaches[filePath].Frames[cacheKey] = frameBytes;
             }
 
@@ -212,46 +181,70 @@ namespace VideoEditorWPF.Services
                 _frameCaches[filePath] = new FrameCache();
         }
 
+        //public void PreloadVideoFrames(string filePath)
+        //{
+        //    if (_frameCaches.ContainsKey(filePath)) return;
+
+        //    _ = Task.Run(async () =>
+        //    {
+        //        try
+        //        {
+        //            EnsureCache(filePath);
+        //            using var decoder = new VideoDecoder(filePath);
+
+        //            var info = await FFmpeg.GetMediaInfo(filePath);
+        //            double duration = info.VideoStreams.FirstOrDefault()?.Duration.TotalSeconds ?? 60;
+        //            int frameCount = Math.Min(120, (int)(duration * 0.5));
+
+        //            for (int i = 0; i < frameCount; i++)
+        //            {
+        //                if (_preloadCts.Token.IsCancellationRequested) break;
+        //                double time = (i / (double)frameCount) * duration;
+        //                var frameBytes = await decoder.GetFrameAsync(filePath, time);
+
+        //                if (frameBytes?.Length == _previewWidth * _previewHeight * 4)
+        //                {
+        //                    int key = (int)(time * 10) % 600;
+        //                    _frameCaches[filePath].Frames[key] = frameBytes;
+        //                }
+        //            }
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            throw new ArgumentException($"{ex.Message}");
+        //        }
+        //    }, _preloadCts.Token);
+        //}
+
         public void PreloadVideoFrames(string filePath)
         {
-            if (_frameCaches.ContainsKey(filePath)) return;
+            //_ = Task.Run(async () =>
+            //{
+            //    EnsureCache(filePath);
+            //    using var decoder = new VideoDecoder(filePath);
 
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    EnsureCache(filePath);
-                    using var decoder = new VideoDecoder(filePath);
+            //    var info = await FFmpeg.GetMediaInfo(filePath);
+            //    double duration = info.VideoStreams.FirstOrDefault()?.Duration.TotalSeconds ?? 60;
 
-                    // ✅ Предзагружаем кадры по всему таймлайну (не только первые 5 сек)
-                    var info = await FFmpeg.GetMediaInfo(filePath);
-                    double duration = info.VideoStreams.FirstOrDefault()?.Duration.TotalSeconds ?? 60;
-                    int frameCount = Math.Min(120, (int)(duration * 0.5)); // 0.5 fps для превью
+            //    // ✅ 60 FPS предзагрузка (каждые 1/60 сек)
+            //    int frameCount = Math.Min(3600, (int)(duration * 60)); // Макс 1 час
+            //    int step = Math.Max(1, frameCount / 120); // 120 кадров максимум
 
-                    for (int i = 0; i < frameCount; i++)
-                    {
-                        if (_preloadCts.Token.IsCancellationRequested) break;
-                        double time = (i / (double)frameCount) * duration;
-                        var frameBytes = await decoder.GetFrameAsync(filePath, time);
+            //    for (int i = 0; i < frameCount; i += step)
+            //    {
+            //        double time = (i / 60.0);  // 60 FPS
+            //        if (time > duration) break;
 
-                        if (frameBytes?.Length == _previewWidth * _previewHeight * 4)
-                        {
-                            int key = (int)(time * 10) % 600; // Ключ по времени (0.1s точность)
-                            _frameCaches[filePath].Frames[key] = frameBytes;
-                        }
-                    }
-                    Debug.WriteLine($"✅ Preloaded {filePath}: {frameCount} frames over {duration}s");
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"❌ Preload failed: {ex.Message}");
-                }
-            }, _preloadCts.Token);
+            //        var frameBytes = await decoder.GetFrameAsync(filePath, time);
+            //        if (frameBytes != null)
+            //            _frameCaches[filePath].Frames[(int)(time * 60)] = frameBytes;
+            //    }
+            //});
+
+            //ВРЕМЕННО ОТКЛЮЧЕНО - конфликтует с кэшем
+            // FIXME
         }
 
-
-
-        // ✅ ИСПРАВЛЕН: возвращает nullable tuple
         private (Clip clip, double timeInClip)? FindActiveVideoClip(IEnumerable<Track> tracks, TimeSpan currentTime)
         {
             double currentSeconds = currentTime.TotalSeconds;
@@ -277,9 +270,8 @@ namespace VideoEditorWPF.Services
             if (!_frameCaches.TryGetValue(filePath, out var cache) || !cache.Frames.Any())
                 return null;
 
-            // ✅ Ищем ближайший кэшированный кадр (±0.5s)
-            int targetKey = (int)(timeInClip * 10);
-            for (int delta = 0; delta <= 5; delta++)
+            int targetKey = (int)(timeInClip * 30);
+            for (int delta = -1; delta <= 1; delta++)
             {
                 int[] keysToCheck = { targetKey + delta, targetKey - delta };
                 foreach (int key in keysToCheck)
@@ -290,8 +282,6 @@ namespace VideoEditorWPF.Services
             }
             return null;
         }
-
-
 
         private void DrawAnimatedPreview(WriteableBitmap bitmap, TimeSpan currentTime)
         {
@@ -331,3 +321,7 @@ namespace VideoEditorWPF.Services
         }
     }
 }
+// Сервис предпросмотра видео в WriteableBitmap (640x60FPS).
+// FFmpeg-декодирование кадров по времени + кэш FrameCache (30FPS key).
+// Находит активный видео-клип на timeline, рендерит кадр.
+// Fallback: анимированная волна. Preload временно отключен.

@@ -16,9 +16,9 @@ namespace VideoEditorWPF.Services
 
     public class TrackRenderService : ITrackRenderService
     {
-        private const double TRACK_HEADER_HEIGHT = 25; // TODO: rename
-        private const double TRACK_HEIGHT = 50;
-        private const double TRACK_GAP = 5;
+        private const double TrackHeaderHeight = 25;
+        private const double TrackHeight = 50;
+        private const double TrackGap = 5;
 
         private readonly IClipRenderService _clipRenderService;
 
@@ -29,13 +29,13 @@ namespace VideoEditorWPF.Services
 
         public void RenderTracks(Canvas canvas, IEnumerable<Track> tracks, double viewportWidth)
         {
-            double currentY = TRACK_HEADER_HEIGHT + TRACK_GAP;
+            double currentY = TrackHeaderHeight + TrackGap;
 
             foreach (var track in tracks)
             {
                 DrawTrackHeader(canvas, track, currentY, viewportWidth);
                 _clipRenderService.RenderClips(canvas, track.Clips, currentY);
-                currentY += TRACK_HEIGHT + TRACK_GAP;
+                currentY += TrackHeight + TrackGap;
             }
         }
 
@@ -45,7 +45,7 @@ namespace VideoEditorWPF.Services
                 .Where(e =>
                 {
                     double top = Canvas.GetTop(e);
-                    return !double.IsNaN(top) && top >= TRACK_HEADER_HEIGHT;
+                    return !double.IsNaN(top) && top >= TrackHeaderHeight;
                 })
                 .ToList();
 
@@ -64,7 +64,7 @@ namespace VideoEditorWPF.Services
             var headerBg = new Rectangle
             {
                 Width = viewportWidth * 2,
-                Height = TRACK_HEADER_HEIGHT,
+                Height = TrackHeaderHeight,
                 Fill = new SolidColorBrush(headerColor),
                 Stroke = Brushes.Gray,
                 StrokeThickness = 1
@@ -89,3 +89,7 @@ namespace VideoEditorWPF.Services
         }
     }
 }
+// Сервис отрисовки треков timeline (Canvas).
+// Рендерит заголовки треков (видео=темно-синий, аудио=темно-зеленый) + клипы.
+// TrackHeight=50px, TrackHeaderHeight=25px, TrackGap=5px.
+// Иконки: 🎬 видео, 🎵 аудио. Очищает область треков (>=25px).

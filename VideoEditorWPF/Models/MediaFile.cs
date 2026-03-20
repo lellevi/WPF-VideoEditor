@@ -1,13 +1,15 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
+using IOPath = System.IO.Path;
 
 namespace VideoEditorWPF.Models
 {
     public class MediaFile
     {
         public string FilePath { get; set; }
-        public string FileName => string.IsNullOrEmpty(FilePath) ? "Unknown" : Path.GetFileName(FilePath);
+        public string FileName => string.IsNullOrEmpty(FilePath) ? "Unknown" : IOPath.GetFileName(FilePath);
         public string ThumbnailPath { get; set; }
         public TimeSpan Duration { get; set; }
         public string DurationString => Duration.ToString(@"hh\:mm\:ss");
@@ -17,7 +19,7 @@ namespace VideoEditorWPF.Models
         public MediaFile(string filePath)
         {
             FilePath = filePath;
-            Duration = GetRealDuration(filePath); // ✅ Реальная длительность!
+            Duration = GetRealDuration(filePath);
             ThumbnailPath = null;
         }
 
@@ -25,32 +27,90 @@ namespace VideoEditorWPF.Models
         {
             try
             {
-                // ✅ Простой способ через ffprobe (если FFmpeg установлен)
-                var psi = new ProcessStartInfo
+                var ffprobePath = IOPath.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffprobe.exe");
+                if (File.Exists(ffprobePath))
                 {
-                    FileName = "ffprobe",
-                    Arguments = $"-v quiet -print_format json -show_format \"{filePath}\"",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
+                    var result = RunFfprobeSync(ffprobePath, filePath);
+                    if (result.success) return result.duration;
+                }
 
-                using var process = Process.Start(psi);
-                var output = process.StandardOutput.ReadToEnd();
-                process.WaitForExit();
-
-                // Парсим JSON или используем заглушку
-                if (output.Contains("duration"))
-                    return TimeSpan.FromSeconds(30); // TODO: парсинг JSON
-
-                return TimeSpan.FromSeconds(120); // ✅ Разные длительности
+                var ffmpegPath = IOPath.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg.exe");
+                if (File.Exists(ffmpegPath))
+                {
+                    var result = RunFfmpegSync(ffmpegPath, filePath);
+                    if (result.success) return result.duration;
+                }
             }
-            catch
+            catch (Exception ex)
             {
-                // ✅ Разумная заглушка по расширению
-                var ext = Path.GetExtension(filePath).ToLower();
-                return ext.Contains("mp3") || ext.Contains("wav") ? TimeSpan.FromSeconds(180) : TimeSpan.FromSeconds(120);
+                throw new ArgumentException($"{ex.Message}");
             }
+
+            var ext = IOPath.GetExtension(filePath).ToLower();
+            return ext.Contains("mp3") || ext.Contains("wav")
+                ? TimeSpan.FromSeconds(180)
+                : TimeSpan.FromSeconds(120);
+        }
+
+        private static (bool success, TimeSpan duration) RunFfprobeSync(string ffprobePath, string filePath)
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = ffprobePath,
+                Arguments = $"-v error -show_entries format=duration -of csv=p=0 \"{filePath}\"",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(psi);
+            if (process == null) return (false, TimeSpan.Zero);
+
+            string output = process.StandardOutput.ReadToEnd();
+            string error = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+
+            if (double.TryParse(output.Trim(), CultureInfo.InvariantCulture, out double durationSeconds) && durationSeconds > 0)
+            {
+                return (true, TimeSpan.FromSeconds(durationSeconds));
+            }
+
+            return (false, TimeSpan.Zero);
+        }
+
+        private static (bool success, TimeSpan duration) RunFfmpegSync(string ffmpegPath, string filePath)
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = ffmpegPath,
+                Arguments = $"\"{filePath}\" -v error -show_entries format=duration -of csv=p=0",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(psi);
+            if (process == null) return (false, TimeSpan.Zero);
+
+            string output = process.StandardOutput.ReadToEnd();
+            string error = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+
+
+            string result = output.Trim();
+            if (string.IsNullOrEmpty(result)) result = error.Trim();
+
+            if (double.TryParse(result, CultureInfo.InvariantCulture, out double durationSeconds) && durationSeconds > 0)
+            {
+                return (true, TimeSpan.FromSeconds(durationSeconds));
+            }
+
+            return (false, TimeSpan.Zero);
         }
     }
 }
+// Хранит путь, имя, длительность, превью. Автоматически получает реальную длительность через ffprobe/ffmpeg.
+// Fallback: 3мин для аудио, 2мин для видео при ошибке анализа.
+// Запускает внешние процессы синхронно для точного определения duration через CLI утилиты FFmpeg.

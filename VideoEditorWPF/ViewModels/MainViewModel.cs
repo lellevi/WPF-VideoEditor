@@ -58,15 +58,12 @@ namespace VideoEditorWPF.ViewModels
             if (fileNames == null || fileNames.Length == 0)
                 return;
 
-            // ✅ 1. БЫСТРОЕ добавление БЕЗ thumbnails и STA проблем
             foreach (string filePath in fileNames)
             {
                 try
                 {
-                    // ✅ Создаем MediaFile напрямую (без UI вызовов)
-                    var mediaFile = new MediaFile(filePath); // Предполагаем конструктор
+                    var mediaFile = new MediaFile(filePath);
 
-                    // Добавляем в UI потоке
                     MediaFiles.Add(mediaFile);
                     _timelineService.AddClipToTimeline(mediaFile, Timeline);
                 }
@@ -78,7 +75,6 @@ namespace VideoEditorWPF.ViewModels
 
             Preview.UpdateTotalDuration();
 
-            // ✅ 2. Отложенная генерация thumbnails (через 1 сек)
             _ = Task.Delay(1000).ContinueWith(_ => GenerateThumbnailsAsync());
         }
 
@@ -90,10 +86,8 @@ namespace VideoEditorWPF.ViewModels
                 {
                     try
                     {
-                        // ✅ Dispatcher для безопасного UI обновления
                         await Application.Current.Dispatcher.InvokeAsync(() =>
                         {
-                            // Простая заглушка thumbnail
                             mediaFile.ThumbnailPath = "pack://application:,,,/Resources/placeholder.png";
                         });
                     }
@@ -112,3 +106,8 @@ namespace VideoEditorWPF.ViewModels
         }
     }
 }
+// Главный ViewModel.
+// Координирует MediaFiles, Timeline, Preview. Команды: AddMedia, ResetPlayhead, Export.
+// Загружает медиа через IMediaService + диалоги. Добавляет клипы на timeline.
+// Заглушка экспорта (FFmpeg). Асинхронные thumbnails с fallback.
+// FIXME

@@ -1,15 +1,16 @@
 using System;
-using System.Windows;
+using System.Diagnostics;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
 using VideoEditorWPF.Commands;
+using VideoEditorWPF.Services;
 
 namespace VideoEditorWPF.ViewModels
 {
     public partial class PreviewViewModel : ViewModelBase
     {
-        private const int DEFAULT_FPS = 24;
+        private const int DefaultFps = 15;
         private MediaElement _mediaElement;
         private readonly TimelineViewModel _timeline;
         private readonly DispatcherTimer _renderTimer;
@@ -18,16 +19,48 @@ namespace VideoEditorWPF.ViewModels
         private TimeSpan _totalDuration;
         private int _previewFPS;
         private DateTime _lastUpdateTime;
-        private bool _isUpdatingFromTimeline = false; // ✅ Защита от цикла
+        private bool _isUpdatingFromTimeline = false;
+
+        private readonly IPreviewRenderService _previewRenderService;
 
         public event Action<TimeSpan> PreviewFrameNeeded;
+
+        public ICommand PlayPauseCommand { get; }
+        public ICommand NextFrameCommand { get; }
+        public ICommand PreviousFrameCommand { get; }
+
+
+        public PreviewViewModel(TimelineViewModel timeline, IPreviewRenderService previewService)
+        {
+            _timeline = timeline;
+            _previewRenderService = previewService;
+            _previewFPS = DefaultFps;
+            _currentTime = TimeSpan.Zero;
+            _totalDuration = TimeSpan.Zero;
+            UpdateTotalDuration();
+
+            _renderTimer = new DispatcherTimer(DispatcherPriority.Render)
+            {
+                Interval = TimeSpan.FromMilliseconds(40)
+            };
+            _renderTimer.Tick += OnRenderTick;
+
+            PlayPauseCommand = new RelayCommand(ExecutePlayPause);
+            NextFrameCommand = new RelayCommand(ExecuteNextFrame);
+            PreviousFrameCommand = new RelayCommand(ExecutePreviousFrame);
+
+            SubscribeToTimelineChanges();
+            UpdateTotalDuration();
+        }
+
+
         public TimeSpan CurrentTime
         {
             get => _currentTime;
             set
             {
                 if (_isUpdatingFromTimer || _isUpdatingFromTimeline || _currentTime == value)
-                    return; // ✅ Блокируем рекурсию!
+                    return;
 
                 _currentTime = value;
                 OnPropertyChanged();
@@ -44,20 +77,17 @@ namespace VideoEditorWPF.ViewModels
                 if (_isPlaying != value)
                 {
                     _isPlaying = value;
-                    OnPropertyChanged(); // ✅ Обновляем UI кнопки
+                    OnPropertyChanged();
 
-                    // ✅ СИНХРОНИЗИРУЕМ с Timeline ПЕРЕД изменением состояния!
                     _timeline.IsPlaying = _isPlaying;
 
                     if (_isPlaying)
                     {
-                        StartPlayback(); // ✅ Запускаем таймер
-                        Console.WriteLine("▶️ PLAY STARTED"); // DEBUG
+                        StartPlayback();
                     }
                     else
                     {
-                        StopPlayback(); // ✅ Останавливаем таймер
-                        Console.WriteLine("⏸ PAUSE"); // DEBUG
+                        StopPlayback();
                     }
                 }
             }
@@ -74,10 +104,13 @@ namespace VideoEditorWPF.ViewModels
             get => _previewFPS;
             set
             {
-                if (_previewFPS != value && value > 0 && value <= 120)
+                if (_previewFPS != value && value > 0 && value <= 30)  // Макс 30 FPS
                 {
                     _previewFPS = value;
                     OnPropertyChanged();
+
+                    _previewRenderService.SetPreviewFPS(_previewFPS);
+
                     _renderTimer.Interval = TimeSpan.FromMilliseconds(1000.0 / _previewFPS);
                 }
             }
@@ -95,41 +128,9 @@ namespace VideoEditorWPF.ViewModels
                 }
             }
         }
-
-        public ICommand PlayPauseCommand { get; }
-        public ICommand NextFrameCommand { get; }
-        public ICommand PreviousFrameCommand { get; }
-
-        public PreviewViewModel(TimelineViewModel timeline) // ✅ Убираем MediaElement
-        {
-            _timeline = timeline;
-            _previewFPS = DEFAULT_FPS;
-            _currentTime = TimeSpan.Zero;
-            //_totalDuration = TimeSpan.Zero;
-            _totalDuration = TimeSpan.FromMinutes(2); // ✅ ТЕСТОВЫЕ 2 МИНУТЫ!
-
-            _renderTimer = new DispatcherTimer(DispatcherPriority.Render)
-            {
-                //Interval = TimeSpan.FromMilliseconds(1000.0 / _previewFPS)
-                Interval = TimeSpan.FromMilliseconds(40) // ✅ 25fps
-            };
-            _renderTimer.Tick += OnRenderTick;
-
-            PlayPauseCommand = new RelayCommand(ExecutePlayPause);
-            NextFrameCommand = new RelayCommand(ExecuteNextFrame);
-            PreviousFrameCommand = new RelayCommand(ExecutePreviousFrame);
-
-            SubscribeToTimelineChanges();
-            UpdateTotalDuration();
-        }
-
-        // ✅ Убираем события MediaElement - используем таймер
-
-
-
-        // ✅ ЕДИНСТВЕННЫЙ метод подписки
         private void SubscribeToTimelineChanges()
         {
+            _timeline.Tracks.CollectionChanged += (s, e) => UpdateTotalDuration();
             _timeline.PropertyChanged += (sender, args) =>
             {
                 if (args.PropertyName == nameof(TimelineViewModel.PlayheadPosition))
@@ -148,46 +149,39 @@ namespace VideoEditorWPF.ViewModels
                         _isUpdatingFromTimeline = false;
                     }
                 }
-                else if (args.PropertyName == "TotalDurationSeconds") // Без nameof для безопасности
+                else if (args.PropertyName == "TotalDurationSeconds")
                 {
                     UpdateTotalDuration();
                 }
+                if (args.PropertyName == nameof(TimelineViewModel.TotalDurationSeconds))
+                    UpdateTotalDuration();
             };
         }
 
-        private bool _isUpdatingFromTimer = false; // ✅ Защита от рекурсии
+        private bool _isUpdatingFromTimer = false;
 
         private void OnRenderTick(object sender, EventArgs e)
         {
             if (_isUpdatingFromTimer || !_isPlaying || TotalDuration == TimeSpan.Zero)
-                return; // ✅ МГНОВЕННЫЙ выход!
+                return;
 
+            _isUpdatingFromTimer = true;
             try
             {
-                _isUpdatingFromTimer = true; // ✅ БЛОКИРУЕМ setter
-
-                Console.WriteLine($"TICK! Current={_currentTime.TotalSeconds:F2}s / {TotalDuration.TotalSeconds:F2}s");
-
-                var now = DateTime.Now;
-                var elapsed = Math.Max(0.016, (now - _lastUpdateTime).TotalSeconds); // ✅ Минимум 60fps
-                _lastUpdateTime = now;
-
-                var newTime = _currentTime + TimeSpan.FromSeconds(elapsed);
+                var frameDuration = 1.0 / PreviewFPS;  // Шаг кадра: 15 FPS = 0.066с
+                var newTime = _currentTime + TimeSpan.FromSeconds(frameDuration);
 
                 if (newTime >= TotalDuration)
                 {
-                    Console.WriteLine("🎬 END REACHED");
-                    _isPlaying = false; // ✅ ПРЯМО тут!
-                    OnPropertyChanged(nameof(IsPlaying)); // ✅ Только уведомление
+                    IsPlaying = false;
                     CurrentTime = TotalDuration;
                 }
                 else
                 {
-                    // ✅ ПРЯМОЕ присвоение БЕЗ setter!
                     _currentTime = newTime;
                     OnPropertyChanged(nameof(CurrentTime));
                     OnPropertyChanged(nameof(CurrentTimeSeconds));
-                    RequestFrame(_currentTime); // ✅ Один вызов!
+                    RequestFrame(_currentTime);
                 }
             }
             finally
@@ -196,13 +190,10 @@ namespace VideoEditorWPF.ViewModels
             }
         }
 
-
         public void UpdateTotalDuration()
         {
             TotalDuration = _timeline.GetTotalDuration();
-            Console.WriteLine($"🔧 TotalDuration UPDATED: {TotalDuration.TotalSeconds:F2} сек"); // 🔍 DEBUG
         }
-
 
         private void StartPlayback()
         {
@@ -246,3 +237,7 @@ namespace VideoEditorWPF.ViewModels
         }
     }
 }
+// ViewModel предпросмотра с кастомным рендерингом (не MediaElement).
+// Управляет воспроизведением (DispatcherTimer 15-30FPS), синхронизируется с Timeline.
+// Команды: Play/Pause, Next/Prev Frame. Запрашивает кадры через PreviewFrameNeeded.
+// Автоматическая остановка в конце TotalDuration.

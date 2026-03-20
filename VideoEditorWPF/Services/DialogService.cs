@@ -39,3 +39,7 @@ namespace VideoEditorWPF.Services
         }
     }
 }
+// Сервис диалоговых окон для WPF (MVVM-friendly).
+// Обертки: OpenFileDialog (multi), SaveFileDialog, MessageBox.
+// Возвращает пути файлов или null при отмене.
+// Использует Win32 API диалоги Microsoft.Win32.*.
