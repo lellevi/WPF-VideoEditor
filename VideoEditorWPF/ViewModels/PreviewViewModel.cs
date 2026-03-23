@@ -82,6 +82,26 @@ namespace VideoEditorWPF.ViewModels
                     _timeline.IsPlaying = _isPlaying;
 
                     if (_isPlaying)
+                        StartPlayback();
+                    else
+                        StopPlayback();
+                }
+            }
+        }
+
+        public TimeSpan CurrentTime
+        {
+            get => _currentTime;
+            set
+            {
+                if (_currentTime != value)
+                {
+                    _currentTime = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(CurrentTimeSeconds));
+
+                    // Синхронизируем с Timeline (конвертируем TimeSpan в пиксели)
+                    if (_timeline != null)
                     {
                         StartPlayback();
                     }
@@ -128,6 +148,33 @@ namespace VideoEditorWPF.ViewModels
                 }
             }
         }
+
+        public ICommand PlayPauseCommand { get; }
+        public ICommand NextFrameCommand { get; }
+        public ICommand PreviousFrameCommand { get; }
+        public ICommand SeekCommand { get; }
+
+        public PreviewViewModel(TimelineViewModel timeline)
+        {
+            _timeline = timeline ?? throw new ArgumentNullException(nameof(timeline));
+            _previewFPS = DEFAULT_FPS;
+            _currentTime = TimeSpan.Zero;
+            _totalDuration = TimeSpan.FromMinutes(5);
+
+            _renderTimer = new DispatcherTimer(DispatcherPriority.Render)
+            {
+                Interval = TimeSpan.FromMilliseconds(1000.0 / _previewFPS)
+            };
+            _renderTimer.Tick += OnRenderTick;
+
+            PlayPauseCommand = new RelayCommand(ExecutePlayPause);
+            NextFrameCommand = new RelayCommand(ExecuteNextFrame);
+            PreviousFrameCommand = new RelayCommand(ExecutePreviousFrame);
+            SeekCommand = new RelayCommand(ExecuteSeek, CanExecuteSeek);
+
+            SubscribeToTimelineChanges();
+        }
+
         private void SubscribeToTimelineChanges()
         {
             _timeline.Tracks.CollectionChanged += (s, e) => UpdateTotalDuration();
@@ -211,10 +258,27 @@ namespace VideoEditorWPF.ViewModels
             PreviewFrameNeeded?.Invoke(time);
         }
 
-        private double TimeSpanToPixels(TimeSpan time) => time.TotalSeconds * _timeline.TimelineScale;
-        private TimeSpan PixelsToTimeSpan(double pixels) => TimeSpan.FromSeconds(pixels / _timeline.TimelineScale);
+        private double TimeSpanToPixels(TimeSpan time)
+        {
+            if (_timeline == null)
+                return 0;
 
-        private void ExecutePlayPause(object parameter) => IsPlaying = !IsPlaying;
+            return time.TotalSeconds * _timeline.TimelineScale;
+        }
+
+        private TimeSpan PixelsToTimeSpan(double pixels)
+        {
+            if (_timeline == null || _timeline.TimelineScale <= 0)
+                return TimeSpan.Zero;
+
+            var seconds = pixels / _timeline.TimelineScale;
+            return TimeSpan.FromSeconds(seconds);
+        }
+
+        private void ExecutePlayPause(object parameter)
+        {
+            IsPlaying = !IsPlaying;
+        }
 
         private void ExecuteNextFrame(object parameter)
         {
@@ -230,10 +294,54 @@ namespace VideoEditorWPF.ViewModels
             CurrentTime = newTime < TimeSpan.Zero ? TimeSpan.Zero : newTime;
         }
 
+        private void ExecuteSeek(object parameter)
+        {
+            if (parameter is TimeSpan seekTime)
+            {
+                // Ограничиваем диапазоном [0, TotalDuration]
+                if (seekTime < TimeSpan.Zero)
+                    seekTime = TimeSpan.Zero;
+                else if (seekTime > TotalDuration)
+                    seekTime = TotalDuration;
+
+                CurrentTime = seekTime;
+            }
+            else if (parameter is double seconds)
+            {
+                ExecuteSeek(TimeSpan.FromSeconds(seconds));
+            }
+        }
+
+        private bool CanExecuteSeek(object parameter)
+        {
+            return true;
+        }
+
         public void Reset()
         {
             IsPlaying = false;
             CurrentTime = TimeSpan.Zero;
+        }
+
+        public void UpdateTotalDuration()
+        {
+            if (_timeline?.Tracks == null)
+                return;
+
+            double maxDuration = 0;
+
+            // Находим максимальное время окончания всех клипов
+            foreach (var track in _timeline.Tracks)
+            {
+                foreach (var clip in track.Clips)
+                {
+                    var clipEnd = clip.OffsetSeconds + clip.DurationSeconds;
+                    if (clipEnd > maxDuration)
+                        maxDuration = clipEnd;
+                }
+            }
+
+            TotalDuration = TimeSpan.FromSeconds(maxDuration);
         }
     }
 }

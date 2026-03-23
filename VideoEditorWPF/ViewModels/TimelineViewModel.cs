@@ -14,7 +14,7 @@ namespace VideoEditorWPF.ViewModels
     {
         private const double DefaultScale = 3.0;
         private const double MinScale = 0.5;
-        private const double MaxScale = 200.0;
+        private const double MaxScale = 800.0;  // Increased from 200.0 for better zoom capability
 
         private double _timelineScale = DefaultScale;
         private double _playheadPosition = 0;
@@ -22,6 +22,9 @@ namespace VideoEditorWPF.ViewModels
         private Track _selectedTrack;
 
         private readonly IClipFactory _clipFactory;
+
+        private double _timelineLength = 30.0;
+        private double _viewportWidth = 0; // Will be set when window loads
 
         public ObservableCollection<Track> Tracks { get; }
 
@@ -58,17 +61,48 @@ namespace VideoEditorWPF.ViewModels
             }
         }
 
+        public void SetMinimumScale(double viewportWidth)
+        {
+            if (viewportWidth <= 0) return;
+
+            _viewportWidth = viewportWidth;
+
+            // Calculate the minimum scale that fits the entire timeline in viewport
+            double dynamicMinScale = viewportWidth / _timelineLength;
+
+            // If current scale is below the minimum, adjust it
+            if (_timelineScale < dynamicMinScale)
+            {
+                TimelineScale = dynamicMinScale;
+            }
+            else
+            {
+                // Just trigger a refresh to validate the current scale
+                OnPropertyChanged(nameof(TimelineScale));
+            }
+        }
+
         public double TimelineScale
         {
             get => _timelineScale;
             set
             {
-                value = Math.Max(MinScale, Math.Min(MaxScale, value));
-                if (_timelineScale != value)
+                // Calculate dynamic minimum scale to fit entire timeline in viewport
+                double dynamicMinScale = MinScale;
+
+                if (_viewportWidth > 0 && _timelineLength > 0)
+                {
+                    dynamicMinScale = Math.Max(MinScale, _viewportWidth / _timelineLength);
+                }
+
+                // Clamp value between effective minimum and maximum
+                value = Math.Max(dynamicMinScale, Math.Min(MaxScale, value));
+
+                if (Math.Abs(_timelineScale - value) > 0.001) // Use epsilon comparison for doubles
                 {
                     _timelineScale = value;
                     OnPropertyChanged();
-                    UpdateAllClipPositionsAndWidths();
+
                     TimelineScaleChanged?.Invoke(this, EventArgs.Empty);
                 }
             }
@@ -103,10 +137,16 @@ namespace VideoEditorWPF.ViewModels
         public double TotalDurationSeconds => GetTotalDuration().TotalSeconds;
         public string TotalDurationString => GetTotalDuration().ToString(@"hh\:mm\:ss");
 
+        // Expose min/max for slider binding
+        public double MinTimelineScale => MinScale;
+        public double MaxTimelineScale => MaxScale;
+
         public ICommand AddVideoTrackCommand { get; }
         public ICommand AddAudioTrackCommand { get; }
         public ICommand DeleteSelectedTrackCommand { get; }
         public ICommand ResetPlayheadCommand { get; }
+        public ICommand ZoomInCommand { get; }
+        public ICommand ZoomOutCommand { get; }
 
         public event EventHandler TimelineScaleChanged;
 
@@ -122,6 +162,8 @@ namespace VideoEditorWPF.ViewModels
             DeleteSelectedTrackCommand = new RelayCommand(_ => DeleteSelectedTrack(),
                 _ => SelectedTrack != null && !SelectedTrack.IsDefault && CanDeleteTrack());
             ResetPlayheadCommand = new RelayCommand(_ => ResetPlayhead());
+            ZoomInCommand = new RelayCommand(_ => ZoomIn());
+            ZoomOutCommand = new RelayCommand(_ => ZoomOut());
 
             Tracks.CollectionChanged += (s, e) => {
                 CommandManager.InvalidateRequerySuggested();
@@ -242,38 +284,23 @@ namespace VideoEditorWPF.ViewModels
             double startTimeSeconds = PlayheadTimeSeconds;
 
             var overlappingClip = track.Clips.FirstOrDefault(c =>
-                startTimeSeconds >= c.StartTimeSeconds &&
-                startTimeSeconds < c.StartTimeSeconds + c.DurationSeconds);
+                startTimeSeconds >= c.OffsetSeconds &&
+                startTimeSeconds < c.OffsetSeconds + c.DurationSeconds);
 
             if (overlappingClip != null)
             {
-                startTimeSeconds = overlappingClip.StartTimeSeconds + overlappingClip.DurationSeconds;
+                startTimeSeconds = overlappingClip.OffsetSeconds + overlappingClip.DurationSeconds;
             }
 
             int trackIndex = Tracks.IndexOf(track);
             var clip = _clipFactory.CreateClip(mediaFile, startTimeSeconds, TimelineScale, trackIndex);
 
             track.Clips.Add(clip);
-
-            PlayheadPosition = (startTimeSeconds + mediaFile.Duration.TotalSeconds) * TimelineScale;
-        }
-
-        private void UpdateAllClipPositionsAndWidths()
-        {
-            foreach (var track in Tracks)
-            {
-                foreach (var clip in track.Clips)
-                {
-                    clip.StartX = clip.StartTimeSeconds * TimelineScale;
-                    clip.Width = clip.DurationSeconds * TimelineScale;
-                }
-            }
         }
 
         public void UpdateClipTimePosition(Clip clip, double newStartX)
         {
-            clip.StartX = newStartX;
-            clip.StartTimeSeconds = newStartX / TimelineScale;
+            clip.OffsetSeconds = newStartX / TimelineScale;
         }
 
         public double CalculatedHeight => Tracks.Count * 70;
@@ -285,23 +312,38 @@ namespace VideoEditorWPF.ViewModels
             PlayheadPosition = 0;
         }
 
-        public TimeSpan GetTotalDuration()
+        private void ZoomIn()
         {
-            double maxEnd = 0;
+            TimelineScale *= 1.1;
+        }
 
-            foreach (var track in Tracks)
+        private void ZoomOut()
+        {
+            TimelineScale /= 1.1;
+        }
+
+        public double TimelineLength
+        {
+            get => _timelineLength;
+            set
             {
-
-                foreach (var clip in track.Clips)
+                if (_timelineLength != value)
                 {
-                    double endTime = clip.StartTimeSeconds + clip.DurationSeconds;
+                    _timelineLength = value;
+                    OnPropertyChanged();
 
-                    if (endTime > maxEnd) maxEnd = endTime;
+                    // Revalidate scale when timeline length changes
+                    if (_viewportWidth > 0)
+                    {
+                        // Recalculate minimum and apply if needed
+                        double dynamicMinScale = _viewportWidth / _timelineLength;
+                        if (_timelineScale < dynamicMinScale)
+                        {
+                            TimelineScale = dynamicMinScale;
+                        }
+                    }
                 }
             }
-
-            var duration = TimeSpan.FromSeconds(maxEnd);
-            return duration;
         }
     }
 }

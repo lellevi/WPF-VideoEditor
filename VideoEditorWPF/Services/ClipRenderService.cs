@@ -9,34 +9,36 @@ namespace VideoEditorWPF.Services
 {
     public interface IClipRenderService
     {
-        void RenderClips(Canvas canvas, IEnumerable<Clip> clips, double trackTop);
+        void RenderClips(Canvas canvas, IEnumerable<Clip> clips, double trackTop, double timelineScale);
     }
 
     public class ClipRenderService : IClipRenderService
     {
-        public void RenderClips(Canvas canvas, IEnumerable<Clip> clips, double trackTop)
+        private const double TrackHeight = 70;
+
+        public void RenderClips(Canvas canvas, IEnumerable<Clip> clips, double trackTop, double timelineScale)
         {
             foreach (var clip in clips)
             {
-                RenderClip(canvas, clip, trackTop);
+                RenderClip(canvas, clip, trackTop, timelineScale);
             }
         }
 
-        private void RenderClip(Canvas canvas, Clip clip, double top)
+        private void RenderClip(Canvas canvas, Clip clip, double top, double timelineScale)
         {
             Brush color = clip.IsVideoClip ? Brushes.DodgerBlue : Brushes.Orange;
 
             var rect = new Rectangle
             {
-                Width = clip.Width,
-                Height = 40,
+                Width = clip.GetWidth(timelineScale),
+                Height = TrackHeight,
                 Fill = color,
                 RadiusX = 5,
                 RadiusY = 5,
                 Tag = clip
             };
 
-            Canvas.SetLeft(rect, clip.StartX);
+            Canvas.SetLeft(rect, clip.GetOffsetPixels(timelineScale));
             Canvas.SetTop(rect, top);
             Canvas.SetZIndex(rect, 10);
             canvas.Children.Add(rect);
@@ -52,8 +54,8 @@ namespace VideoEditorWPF.Services
                 Tag = clip
             };
 
-            Canvas.SetLeft(label, clip.StartX + 5);
-            Canvas.SetTop(label, top + 15);
+            Canvas.SetLeft(label, clip.GetOffsetPixels(timelineScale) + 5);
+            Canvas.SetTop(label, top + (TrackHeight / 2) - 5); // Center vertically
             Canvas.SetZIndex(label, 11);
             canvas.Children.Add(label);
         }

@@ -18,10 +18,8 @@ namespace VideoEditorWPF.Factories
             return new Clip
             {
                 FilePath = mediaFile.FilePath,
-                StartTimeSeconds = startTimeSeconds,
-                StartX = startTimeSeconds * timelineScale,
+                OffsetSeconds = startTimeSeconds,
                 DurationSeconds = mediaFile.Duration.TotalSeconds,
-                Width = mediaFile.Duration.TotalSeconds * timelineScale,
                 IsVideoClip = isVideo,
                 TrackIndex = trackIndex
             };

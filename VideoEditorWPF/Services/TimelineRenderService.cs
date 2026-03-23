@@ -9,7 +9,7 @@ namespace VideoEditorWPF.Services
 {
     public interface ITimelineRenderService
     {
-        void RenderTimeline(Canvas canvas, double scale, double viewportWidth);
+        void RenderTimeline(Canvas canvas, double scale, double viewportWidth, double timelineLength);
         void ClearTimeline(Canvas canvas);
     }
 
@@ -17,11 +17,11 @@ namespace VideoEditorWPF.Services
     {
         public const double TrackHeaderHeight = 25;
 
-        public void RenderTimeline(Canvas canvas, double scale, double viewportWidth)
+        public void RenderTimeline(Canvas canvas, double scale, double viewportWidth, double timelineLength)
         {
             if (canvas.ActualWidth <= 0) return;
 
-            DrawTimelineRuler(canvas, scale, viewportWidth);
+            DrawTimelineRuler(canvas, scale, viewportWidth, timelineLength);
         }
 
         public void ClearTimeline(Canvas canvas)
@@ -40,9 +40,10 @@ namespace VideoEditorWPF.Services
             }
         }
 
-        private void DrawTimelineRuler(Canvas canvas, double pixelsPerSecond, double viewportWidth)
+        private void DrawTimelineRuler(Canvas canvas, double pixelsPerSecond, double viewportWidth, double timelineLength)
         {
-            double totalSeconds = Math.Min(viewportWidth / pixelsPerSecond * 2, 3600);
+            // Use the timeline length instead of viewport-based calculation
+            double totalSeconds = timelineLength;
 
             var intervals = GetRulerIntervals(pixelsPerSecond);
 
@@ -125,10 +126,10 @@ namespace VideoEditorWPF.Services
         {
             return seconds switch
             {
-                >= 3600 => $"{TimeSpan.FromSeconds(seconds):h\\:mm\\:ss}s",
-                >= 60 => $"{TimeSpan.FromSeconds(seconds):mm\\:ss}s",
-                >= 1 => $"{TimeSpan.FromSeconds(seconds):mm\\:ss}s",
-                _ => $"{TimeSpan.FromSeconds(seconds):mm\\:ss\\.ff}s",
+                >= 3600 => $"{TimeSpan.FromSeconds(seconds):h\\:mm\\:ss}",
+                >= 60 => $"{TimeSpan.FromSeconds(seconds):mm\\:ss}",
+                >= 1 => $"{TimeSpan.FromSeconds(seconds):mm\\:ss}",
+                _ => $"{TimeSpan.FromSeconds(seconds):mm\\:ss\\.ff}",
             };
         }
     }

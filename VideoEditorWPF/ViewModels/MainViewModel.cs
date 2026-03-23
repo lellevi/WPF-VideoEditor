@@ -65,7 +65,6 @@ namespace VideoEditorWPF.ViewModels
                     var mediaFile = new MediaFile(filePath);
 
                     MediaFiles.Add(mediaFile);
-                    _timelineService.AddClipToTimeline(mediaFile, Timeline);
                 }
                 catch (Exception ex)
                 {

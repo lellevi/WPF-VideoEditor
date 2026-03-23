@@ -74,6 +74,133 @@ namespace VideoEditorWPF.Services
             {
                 throw new ArgumentException($"{ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Находит все активные клипы на указанном времени
+        /// </summary>
+        private List<(Clip clip, double timeInClip)> FindActiveClips(IEnumerable<Track> tracks, TimeSpan currentTime)
+        {
+            var activeClips = new List<(Clip clip, double timeInClip)>();
+            double currentSeconds = currentTime.TotalSeconds;
+
+            foreach (var track in tracks.OrderBy(t => t.TrackIndex))
+            {
+                // Пропускаем заблокированные и отключенные треки
+                if (track.IsLocked || track.IsMuted)
+                    continue;
+
+                foreach (var clip in track.Clips)
+                {
+                    double clipStart = clip.OffsetSeconds;
+                    double clipEnd = clip.OffsetSeconds + clip.DurationSeconds;
+
+                    // Проверяем, активен ли клип в текущий момент
+                    if (currentSeconds >= clipStart && currentSeconds < clipEnd)
+                    {
+                        double timeInClip = currentSeconds - clipStart;
+                        activeClips.Add((clip, timeInClip));
+                    }
+                }
+            }
+
+            return activeClips;
+        }
+
+        /// <summary>
+        /// Композитит кадры из нескольких клипов
+        /// Использует System.Drawing для композитинга
+        /// </summary>
+        private byte[] CompositeFrame(List<(Clip clip, double timeInClip)> activeClips, TimeSpan currentTime)
+        {
+            if (activeClips.Count == 0)
+                return null;
+
+            try
+            {
+                // Создаем результирующий Bitmap
+                using (var compositeBitmap = new Drawing.Bitmap(_previewWidth, _previewHeight))
+                using (var graphics = Drawing.Graphics.FromImage(compositeBitmap))
+                {
+                    // Заливаем черным фоном
+                    graphics.Clear(Drawing.Color.Black);
+
+                    // Рендерим каждый клип поверх предыдущих
+                    foreach (var (clip, timeInClip) in activeClips)
+                    {
+                        RenderClipToGraphics(graphics, clip, timeInClip);
+                    }
+
+                    // Конвертируем в byte[] в формате BGRA
+                    return BitmapToByteArray(compositeBitmap);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Ошибка композитинга: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Рендерит один клип на Graphics
+        /// </summary>
+        private void RenderClipToGraphics(Drawing.Graphics graphics, Clip clip, double timeInClip)
+        {
+            try
+            {
+                // Для видео клипов - декодируем кадр
+                if (clip.IsVideoClip)
+                {
+                    var frame = GetVideoFrame(clip.FilePath, timeInClip);
+                    if (frame != null)
+                    {
+                        graphics.DrawImage(frame, 0, 0, _previewWidth, _previewHeight);
+                    }
+                }
+                else
+                {
+                    // Для аудио клипов - показываем индикатор
+                    RenderAudioIndicator(graphics, clip);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Ошибка рендеринга клипа {clip.FilePath}: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Получает кадр из видео на указанном времени
+        /// </summary>
+        private Drawing.Bitmap GetVideoFrame(string filePath, double timeInSeconds)
+        {
+            try
+            {
+                // Проверяем существование файла
+                if (!File.Exists(filePath))
+                    return null;
+
+                // Получаем или создаем декодер
+                if (!_videoDecoders.TryGetValue(filePath, out var decoder))
+                {
+                    decoder = new VideoDecoder(filePath);
+                    _videoDecoders[filePath] = decoder;
+                }
+
+                // Получаем кадр
+                var frameData = decoder.GetFrameAtTime(timeInSeconds);
+                if (frameData != null && frameData.Length > 0)
+                {
+                    // Конвертируем byte[] в Bitmap
+                    return ByteArrayToBitmap(frameData, decoder.Width, decoder.Height);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Ошибка получения кадра: {ex.Message}");
+            }
+
             return null;
         }
 
