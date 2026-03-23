@@ -137,6 +137,30 @@ namespace VideoEditorWPF.ViewModels
         public double TotalDurationSeconds => GetTotalDuration().TotalSeconds;
         public string TotalDurationString => GetTotalDuration().ToString(@"hh\:mm\:ss");
 
+        /// <summary>
+        /// Вычисляет общую длительность всех клипов на таймлайне
+        /// </summary>
+        private TimeSpan GetTotalDuration()
+        {
+            double maxDuration = 0;
+
+            foreach (var track in Tracks)
+            {
+                foreach (var clip in track.Clips)
+                {
+                    double clipEnd = clip.OffsetSeconds + clip.DurationSeconds;
+                    if (clipEnd > maxDuration)
+                        maxDuration = clipEnd;
+                }
+            }
+
+            // Минимум 30 секунд для пустого таймлайна
+            if (maxDuration == 0)
+                maxDuration = 30;
+
+            return TimeSpan.FromSeconds(maxDuration);
+        }
+
         // Expose min/max for slider binding
         public double MinTimelineScale => MinScale;
         public double MaxTimelineScale => MaxScale;

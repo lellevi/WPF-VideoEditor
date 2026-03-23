@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
@@ -15,6 +14,9 @@ using Drawing = System.Drawing;
 
 namespace VideoEditorWPF.Services
 {
+    /// <summary>
+    /// Интерфейс для рендеринга видео превью
+    /// </summary>
     public interface IPreviewRenderService
     {
         WriteableBitmap InitializePreview(int width = 640, int height = 360);
@@ -23,24 +25,43 @@ namespace VideoEditorWPF.Services
         void PreloadVideoFrames(string filePath);
     }
 
+    /// <summary>
+    /// Кэш кадров для видео
+    /// </summary>
     public class FrameCache
     {
         public Dictionary<int, byte[]> Frames { get; } = new Dictionary<int, byte[]>();
     }
 
+    /// <summary>
+    /// Декодер видео через FFmpeg
+    /// </summary>
     public class VideoDecoder : IDisposable
     {
         private readonly string _filePath;
-        private readonly int _width = 640, _height = 360;
-        public VideoDecoder(string filePath) => _filePath = filePath;
-        public void Dispose() { }
+        public int Width { get; } = 640;
+        public int Height { get; } = 360;
 
+        public VideoDecoder(string filePath)
+        {
+            _filePath = filePath;
+        }
+
+        /// <summary>
+        /// Асинхронно получает кадр из видео
+        /// </summary>
         public async Task<byte[]> GetFrameAsync(string filePath, double timeInSeconds)
         {
-            var stopwatch = Stopwatch.StartNew();
             try
             {
-                var ffmpegPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg.exe");
+                var ffmpegPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg", "ffmpeg.exe");
+
+                if (!File.Exists(ffmpegPath))
+                {
+                    Debug.WriteLine($"FFmpeg не найден: {ffmpegPath}");
+                    return null;
+                }
+
                 var tempPng = Path.Combine(Path.GetTempPath(), $"frame_{Guid.NewGuid():N}.png");
 
                 var args = $"-ss {timeInSeconds.ToString("F3", System.Globalization.CultureInfo.InvariantCulture)} -i \"{filePath}\" -frames:v 1 -y \"{tempPng}\"";
@@ -61,160 +82,46 @@ namespace VideoEditorWPF.Services
 
                 if (process.ExitCode == 0 && File.Exists(tempPng))
                 {
-                    using var fs = new FileStream(tempPng, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                    using var bitmap = new Drawing.Bitmap(fs);
+                    try
+                    {
+                        using var fs = new FileStream(tempPng, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                        using var bitmap = new Drawing.Bitmap(fs);
+                        using var resized = new Drawing.Bitmap(bitmap, Width, Height);
 
-                    using var resized = new Drawing.Bitmap(bitmap, _width, _height);
-                    var result = BitmapToBytes(resized);
-
-                    return result;
+                        var result = BitmapToBytes(resized);
+                        return result;
+                    }
+                    finally
+                    {
+                        // Удаляем временный файл
+                        try { File.Delete(tempPng); } catch { }
+                    }
                 }
             }
             catch (Exception ex)
             {
-                throw new ArgumentException($"{ex.Message}");
+                Debug.WriteLine($"Ошибка декодирования кадра: {ex.Message}");
             }
 
             return null;
         }
 
         /// <summary>
-        /// Находит все активные клипы на указанном времени
+        /// Конвертирует Bitmap в byte[]
         /// </summary>
-        private List<(Clip clip, double timeInClip)> FindActiveClips(IEnumerable<Track> tracks, TimeSpan currentTime)
-        {
-            var activeClips = new List<(Clip clip, double timeInClip)>();
-            double currentSeconds = currentTime.TotalSeconds;
-
-            foreach (var track in tracks.OrderBy(t => t.TrackIndex))
-            {
-                // Пропускаем заблокированные и отключенные треки
-                if (track.IsLocked || track.IsMuted)
-                    continue;
-
-                foreach (var clip in track.Clips)
-                {
-                    double clipStart = clip.OffsetSeconds;
-                    double clipEnd = clip.OffsetSeconds + clip.DurationSeconds;
-
-                    // Проверяем, активен ли клип в текущий момент
-                    if (currentSeconds >= clipStart && currentSeconds < clipEnd)
-                    {
-                        double timeInClip = currentSeconds - clipStart;
-                        activeClips.Add((clip, timeInClip));
-                    }
-                }
-            }
-
-            return activeClips;
-        }
-
-        /// <summary>
-        /// Композитит кадры из нескольких клипов
-        /// Использует System.Drawing для композитинга
-        /// </summary>
-        private byte[] CompositeFrame(List<(Clip clip, double timeInClip)> activeClips, TimeSpan currentTime)
-        {
-            if (activeClips.Count == 0)
-                return null;
-
-            try
-            {
-                // Создаем результирующий Bitmap
-                using (var compositeBitmap = new Drawing.Bitmap(filename)
-                using (var graphics = Drawing.Graphics.FromImage(compositeBitmap))
-                {
-                    // Заливаем черным фоном
-                    graphics.Clear(Drawing.Color.Black);
-
-                    // Рендерим каждый клип поверх предыдущих
-                    foreach (var (clip, timeInClip) in activeClips)
-                    {
-                        RenderClipToGraphics(graphics, clip, timeInClip);
-                    }
-
-                    // Конвертируем в byte[] в формате BGRA
-                    return BitmapToByteArray(compositeBitmap);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка композитинга: {ex.Message}");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Рендерит один клип на Graphics
-        /// </summary>
-        private void RenderClipToGraphics(Drawing.Graphics graphics, Clip clip, double timeInClip)
-        {
-            try
-            {
-                // Для видео клипов - декодируем кадр
-                if (clip.IsVideoClip)
-                {
-                    var frame = GetVideoFrame(clip.FilePath, timeInClip);
-                    if (frame != null)
-                    {
-                        graphics.DrawImage(frame, 0, 0, _previewWidth, _previewHeight);
-                    }
-                }
-                else
-                {
-                    // Для аудио клипов - показываем индикатор
-                    RenderAudioIndicator(graphics, clip);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка рендеринга клипа {clip.FilePath}: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Получает кадр из видео на указанном времени
-        /// </summary>
-        private Drawing.Bitmap GetVideoFrame(string filePath, double timeInSeconds)
-        {
-            try
-            {
-                // Проверяем существование файла
-                if (!File.Exists(filePath))
-                    return null;
-
-                // Получаем или создаем декодер
-                if (!_videoDecoders.TryGetValue(filePath, out var decoder))
-                {
-                    decoder = new VideoDecoder(filePath);
-                    _videoDecoders[filePath] = decoder;
-                }
-
-                // Получаем кадр
-                var frameData = decoder.GetFrameAtTime(timeInSeconds);
-                if (frameData != null && frameData.Length > 0)
-                {
-                    // Конвертируем byte[] в Bitmap
-                    return ByteArrayToBitmap(frameData, decoder.Width, decoder.Height);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка получения кадра: {ex.Message}");
-            }
-
-            return null;
-        }
-
         private byte[] BitmapToBytes(Drawing.Bitmap bitmap)
         {
             var rect = new Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height);
             var data = bitmap.LockBits(rect, Drawing.Imaging.ImageLockMode.ReadOnly,
-                                     Drawing.Imaging.PixelFormat.Format32bppArgb);
+                Drawing.Imaging.PixelFormat.Format32bppArgb);
             try
             {
                 byte[] bytes = new byte[Math.Abs(data.Stride) * bitmap.Height];
                 Marshal.Copy(data.Scan0, bytes, 0, bytes.Length);
+
+                // Конвертируем ARGB -> BGRA
+                ConvertArgbToBgra(bytes);
+
                 return bytes;
             }
             finally
@@ -222,27 +129,53 @@ namespace VideoEditorWPF.Services
                 bitmap.UnlockBits(data);
             }
         }
+
+        /// <summary>
+        /// Конвертирует ARGB в BGRA
+        /// </summary>
+        private void ConvertArgbToBgra(byte[] pixels)
+        {
+            for (int i = 0; i < pixels.Length; i += 4)
+            {
+                // Меняем R и B местами
+                byte temp = pixels[i];      // B
+                pixels[i] = pixels[i + 2];  // B = R
+                pixels[i + 2] = temp;       // R = B
+            }
+        }
+
+        public void Dispose()
+        {
+            // Очистка ресурсов
+        }
     }
 
+    /// <summary>
+    /// Сервис для рендеринга превью видео
+    /// </summary>
     public class PreviewRenderService : IPreviewRenderService
     {
-        private int _previewWidth = 640, _previewHeight = 360;
+        private int _previewWidth = 640;
+        private int _previewHeight = 360;
         private int _previewFPS = 15;
+
         private readonly ConcurrentDictionary<string, FrameCache> _frameCaches = new();
         private readonly Dictionary<string, VideoDecoder> _videoDecoders = new();
-        private CancellationTokenSource _preloadCts = new();
 
         public WriteableBitmap InitializePreview(int width = 640, int height = 360)
         {
-            _previewWidth = width; _previewHeight = height;
+            _previewWidth = width;
+            _previewHeight = height;
+
             var bitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgra32, null);
             ClearBitmap(bitmap);
+
             return bitmap;
         }
 
         public void SetPreviewFPS(int fps)
         {
-            _previewFPS = Math.Max(5, Math.Min(60, fps));  // 5-60 FPS
+            _previewFPS = Math.Max(5, Math.Min(60, fps));
         }
 
         public async Task UpdatePreview(WriteableBitmap bitmap, TimeSpan currentTime, IEnumerable<Track> tracks)
@@ -253,16 +186,19 @@ namespace VideoEditorWPF.Services
             try
             {
                 var activeClipResult = FindActiveVideoClip(tracks, currentTime);
+
                 if (activeClipResult.HasValue)
                 {
                     var (clip, timeInClip) = activeClipResult.Value;
-
                     var frameBytes = await GetOrFetchFrame(clip.FilePath, timeInClip);
 
                     if (frameBytes != null && frameBytes.Length == bitmap.PixelWidth * bitmap.PixelHeight * 4)
                     {
-                        bitmap.WritePixels(new Int32Rect(0, 0, _previewWidth, _previewHeight),
-                                         frameBytes, _previewWidth * 4, 0);
+                        bitmap.WritePixels(
+                            new Int32Rect(0, 0, _previewWidth, _previewHeight),
+                            frameBytes,
+                            _previewWidth * 4,
+                            0);
                     }
                     else
                     {
@@ -276,23 +212,32 @@ namespace VideoEditorWPF.Services
 
                 bitmap.AddDirtyRect(new Int32Rect(0, 0, _previewWidth, _previewHeight));
             }
-            finally { bitmap.Unlock(); }
+            finally
+            {
+                bitmap.Unlock();
+            }
         }
 
-
+        /// <summary>
+        /// Получает кадр из кэша или декодирует новый
+        /// </summary>
         private async Task<byte[]> GetOrFetchFrame(string filePath, double timeInClip)
         {
+            // Проверяем кэш
             var cached = GetCachedFrame(filePath, timeInClip);
             if (cached != null) return cached;
 
+            // Получаем или создаем декодер
             if (!_videoDecoders.TryGetValue(filePath, out var decoder))
             {
                 decoder = new VideoDecoder(filePath);
                 _videoDecoders[filePath] = decoder;
             }
 
+            // Декодируем кадр
             var frameBytes = await decoder.GetFrameAsync(filePath, timeInClip);
 
+            // Сохраняем в кэш
             if (frameBytes != null)
             {
                 EnsureCache(filePath);
@@ -303,80 +248,13 @@ namespace VideoEditorWPF.Services
             return frameBytes;
         }
 
-
-        private void EnsureCache(string filePath)
-        {
-            if (!_frameCaches.ContainsKey(filePath))
-                _frameCaches[filePath] = new FrameCache();
-        }
-
-        //public void PreloadVideoFrames(string filePath)
-        //{
-        //    if (_frameCaches.ContainsKey(filePath)) return;
-
-        //    _ = Task.Run(async () =>
-        //    {
-        //        try
-        //        {
-        //            EnsureCache(filePath);
-        //            using var decoder = new VideoDecoder(filePath);
-
-        //            var info = await FFmpeg.GetMediaInfo(filePath);
-        //            double duration = info.VideoStreams.FirstOrDefault()?.Duration.TotalSeconds ?? 60;
-        //            int frameCount = Math.Min(120, (int)(duration * 0.5));
-
-        //            for (int i = 0; i < frameCount; i++)
-        //            {
-        //                if (_preloadCts.Token.IsCancellationRequested) break;
-        //                double time = (i / (double)frameCount) * duration;
-        //                var frameBytes = await decoder.GetFrameAsync(filePath, time);
-
-        //                if (frameBytes?.Length == _previewWidth * _previewHeight * 4)
-        //                {
-        //                    int key = (int)(time * 10) % 600;
-        //                    _frameCaches[filePath].Frames[key] = frameBytes;
-        //                }
-        //            }
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            throw new ArgumentException($"{ex.Message}");
-        //        }
-        //    }, _preloadCts.Token);
-        //}
-
-        public void PreloadVideoFrames(string filePath)
-        {
-            //_ = Task.Run(async () =>
-            //{
-            //    EnsureCache(filePath);
-            //    using var decoder = new VideoDecoder(filePath);
-
-            //    var info = await FFmpeg.GetMediaInfo(filePath);
-            //    double duration = info.VideoStreams.FirstOrDefault()?.Duration.TotalSeconds ?? 60;
-
-            //    // ✅ 60 FPS предзагрузка (каждые 1/60 сек)
-            //    int frameCount = Math.Min(3600, (int)(duration * 60)); // Макс 1 час
-            //    int step = Math.Max(1, frameCount / 120); // 120 кадров максимум
-
-            //    for (int i = 0; i < frameCount; i += step)
-            //    {
-            //        double time = (i / 60.0);  // 60 FPS
-            //        if (time > duration) break;
-
-            //        var frameBytes = await decoder.GetFrameAsync(filePath, time);
-            //        if (frameBytes != null)
-            //            _frameCaches[filePath].Frames[(int)(time * 60)] = frameBytes;
-            //    }
-            //});
-
-            //ВРЕМЕННО ОТКЛЮЧЕНО - конфликтует с кэшем
-            // FIXME
-        }
-
+        /// <summary>
+        /// Находит активный видео клип на текущем времени
+        /// </summary>
         private (Clip clip, double timeInClip)? FindActiveVideoClip(IEnumerable<Track> tracks, TimeSpan currentTime)
         {
             double currentSeconds = currentTime.TotalSeconds;
+
             foreach (var track in tracks.OrderBy(t => t.TrackIndex))
             {
                 if (track.IsLocked || track.IsMuted) continue;
@@ -384,38 +262,64 @@ namespace VideoEditorWPF.Services
                 foreach (var clip in track.Clips)
                 {
                     if (clip.IsVideoClip &&
-                        currentSeconds >= clip.StartTimeSeconds &&
-                        currentSeconds < clip.StartTimeSeconds + clip.DurationSeconds)
+                        currentSeconds >= clip.OffsetSeconds &&
+                        currentSeconds < clip.OffsetSeconds + clip.DurationSeconds)
                     {
-                        return (clip, currentSeconds - clip.StartTimeSeconds);
+                        return (clip, currentSeconds - clip.OffsetSeconds);
                     }
                 }
             }
+
             return null;
         }
 
+        /// <summary>
+        /// Получает кадр из кэша
+        /// </summary>
         private byte[] GetCachedFrame(string filePath, double timeInClip)
         {
             if (!_frameCaches.TryGetValue(filePath, out var cache) || !cache.Frames.Any())
                 return null;
 
             int targetKey = (int)(timeInClip * 30);
+
+            // Проверяем ближайшие ключи
             for (int delta = -1; delta <= 1; delta++)
             {
-                int[] keysToCheck = { targetKey + delta, targetKey - delta };
-                foreach (int key in keysToCheck)
-                {
-                    if (key >= 0 && cache.Frames.TryGetValue(key % 600, out var frame))
-                        return frame;
-                }
+                if (cache.Frames.TryGetValue(targetKey + delta, out var frame))
+                    return frame;
             }
+
             return null;
         }
 
+        /// <summary>
+        /// Создает кэш для файла если его нет
+        /// </summary>
+        private void EnsureCache(string filePath)
+        {
+            if (!_frameCaches.ContainsKey(filePath))
+                _frameCaches[filePath] = new FrameCache();
+        }
+
+        /// <summary>
+        /// Предзагрузка кадров (пока отключена)
+        /// </summary>
+        public void PreloadVideoFrames(string filePath)
+        {
+            // FIXME: Временно отключено - конфликтует с кэшем
+            // Можно реализовать в фоновом режиме
+        }
+
+        /// <summary>
+        /// Рисует анимированное превью когда нет видео
+        /// </summary>
         private void DrawAnimatedPreview(WriteableBitmap bitmap, TimeSpan currentTime)
         {
-            int width = bitmap.PixelWidth, height = bitmap.PixelHeight;
+            int width = bitmap.PixelWidth;
+            int height = bitmap.PixelHeight;
             var frameData = new byte[width * height * 4];
+
             double progress = Math.Min(1.0, currentTime.TotalSeconds / 120.0);
 
             for (int y = 0; y < height; y++)
@@ -427,30 +331,41 @@ namespace VideoEditorWPF.Services
 
                     byte r = (byte)(50 + progress * 150 + wave * 30);
                     byte g = (byte)(100 + wave * 50);
-                    byte b = (byte)(200);
+                    byte b = 200;
 
-                    frameData[index] = b; frameData[index + 1] = g;
-                    frameData[index + 2] = r; frameData[index + 3] = 255;
+                    frameData[index] = b;
+                    frameData[index + 1] = g;
+                    frameData[index + 2] = r;
+                    frameData[index + 3] = 255;
                 }
             }
 
-            bitmap.WritePixels(new Int32Rect(0, 0, width, height), frameData, width * 4, 0);
+            bitmap.WritePixels(
+                new Int32Rect(0, 0, width, height),
+                frameData,
+                width * 4,
+                0);
         }
 
+        /// <summary>
+        /// Очищает bitmap черным цветом
+        /// </summary>
         private void ClearBitmap(WriteableBitmap bitmap)
         {
             bitmap.Lock();
             try
             {
                 var blackData = new byte[bitmap.PixelWidth * bitmap.PixelHeight * 4];
-                bitmap.WritePixels(new Int32Rect(0, 0, bitmap.PixelWidth, bitmap.PixelHeight),
-                                 blackData, bitmap.PixelWidth * 4, 0);
+                bitmap.WritePixels(
+                    new Int32Rect(0, 0, bitmap.PixelWidth, bitmap.PixelHeight),
+                    blackData,
+                    bitmap.PixelWidth * 4,
+                    0);
             }
-            finally { bitmap.Unlock(); }
+            finally
+            {
+                bitmap.Unlock();
+            }
         }
     }
 }
-// Сервис предпросмотра видео в WriteableBitmap (640x60FPS).
-// FFmpeg-декодирование кадров по времени + кэш FrameCache (30FPS key).
-// Находит активный видео-клип на timeline, рендерит кадр.
-// Fallback: анимированная волна. Preload временно отключен.
