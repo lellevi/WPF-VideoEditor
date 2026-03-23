@@ -28,7 +28,7 @@ namespace VideoEditorWPF.ViewModels
         public ICommand PlayPauseCommand { get; }
         public ICommand NextFrameCommand { get; }
         public ICommand PreviousFrameCommand { get; }
-
+        public ICommand SeekCommand { get; }
 
         public PreviewViewModel(TimelineViewModel timeline, IPreviewRenderService previewService)
         {
@@ -37,7 +37,6 @@ namespace VideoEditorWPF.ViewModels
             _previewFPS = DefaultFps;
             _currentTime = TimeSpan.Zero;
             _totalDuration = TimeSpan.Zero;
-            UpdateTotalDuration();
 
             _renderTimer = new DispatcherTimer(DispatcherPriority.Render)
             {
@@ -54,20 +53,7 @@ namespace VideoEditorWPF.ViewModels
         }
 
 
-        public TimeSpan CurrentTime
-        {
-            get => _currentTime;
-            set
-            {
-                if (_isUpdatingFromTimer || _isUpdatingFromTimeline || _currentTime == value)
-                    return;
 
-                _currentTime = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(CurrentTimeSeconds));
-                RequestFrame(value);
-            }
-        }
 
         public bool IsPlaying
         {
@@ -88,28 +74,29 @@ namespace VideoEditorWPF.ViewModels
                 }
             }
         }
-
         public TimeSpan CurrentTime
         {
             get => _currentTime;
             set
             {
-                if (_currentTime != value)
-                {
-                    _currentTime = value;
-                    OnPropertyChanged();
-                    OnPropertyChanged(nameof(CurrentTimeSeconds));
+                if (_isUpdatingFromTimer || _isUpdatingFromTimeline || _currentTime == value)
+                    return;
 
-                    // Синхронизируем с Timeline (конвертируем TimeSpan в пиксели)
-                    if (_timeline != null)
-                    {
-                        StartPlayback();
-                    }
-                    else
-                    {
-                        StopPlayback();
-                    }
+                _currentTime = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(CurrentTimeSeconds));
+
+                // Синхронизируем с Timeline (конвертируем TimeSpan в пиксели)
+                if (_timeline != null)
+                {
+                    StartPlayback();
                 }
+                else
+                {
+                    StopPlayback();
+                }
+
+                RequestFrame(value);
             }
         }
 
@@ -149,15 +136,11 @@ namespace VideoEditorWPF.ViewModels
             }
         }
 
-        public ICommand PlayPauseCommand { get; }
-        public ICommand NextFrameCommand { get; }
-        public ICommand PreviousFrameCommand { get; }
-        public ICommand SeekCommand { get; }
 
         public PreviewViewModel(TimelineViewModel timeline)
         {
             _timeline = timeline ?? throw new ArgumentNullException(nameof(timeline));
-            _previewFPS = DEFAULT_FPS;
+            _previewFPS = DefaultFps;
             _currentTime = TimeSpan.Zero;
             _totalDuration = TimeSpan.FromMinutes(5);
 
@@ -237,10 +220,10 @@ namespace VideoEditorWPF.ViewModels
             }
         }
 
-        public void UpdateTotalDuration()
-        {
-            TotalDuration = _timeline.GetTotalDuration();
-        }
+        //public void UpdateTotalDuration()
+        //{
+        //    TotalDuration = _timeline.GetTotalDuration();
+        //}
 
         private void StartPlayback()
         {

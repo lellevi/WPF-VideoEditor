@@ -337,6 +337,7 @@ namespace VideoEditorWPF
             {
                 _interactionService.FinishDrag(_dragInfo);
                 RefreshTracks();
+            }
 
             TimelineCanvas.ReleaseMouseCapture();
             _dragInfo = null;

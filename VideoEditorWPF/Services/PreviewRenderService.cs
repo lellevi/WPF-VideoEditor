@@ -74,6 +74,8 @@ namespace VideoEditorWPF.Services
             {
                 throw new ArgumentException($"{ex.Message}");
             }
+
+            return null;
         }
 
         /// <summary>
@@ -119,7 +121,7 @@ namespace VideoEditorWPF.Services
             try
             {
                 // Создаем результирующий Bitmap
-                using (var compositeBitmap = new Drawing.Bitmap(_previewWidth, _previewHeight))
+                using (var compositeBitmap = new Drawing.Bitmap(filename)
                 using (var graphics = Drawing.Graphics.FromImage(compositeBitmap))
                 {
                     // Заливаем черным фоном
