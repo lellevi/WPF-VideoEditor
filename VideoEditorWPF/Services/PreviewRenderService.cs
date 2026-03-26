@@ -59,7 +59,6 @@ namespace VideoEditorWPF.Services
 
                 var tempPng = Path.Combine(Path.GetTempPath(), $"frame_{Guid.NewGuid():N}.png");
 
-                // ✅ FIXED: InvariantCulture + правильные кавычки
                 var timeStr = timeInSeconds.ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
                 var args = $"-ss {timeStr} -i \"{filePath}\" -frames:v 1 -vf \"scale={Width}:{Height}\" -pix_fmt bgra -y \"{tempPng}\"";
 
@@ -69,7 +68,7 @@ namespace VideoEditorWPF.Services
                     Arguments = args,
                     UseShellExecute = false,
                     RedirectStandardError = true,
-                    RedirectStandardOutput = true,  // ← ДОБАВИТЬ!
+                    RedirectStandardOutput = true,
                     CreateNoWindow = true
                 };
 
@@ -173,7 +172,6 @@ namespace VideoEditorWPF.Services
                 return;
             }
 
-            // ✅ НЕ лочим bitmap здесь - делаем ВСЁ асинхронно
             _ = Task.Run(async () =>
             {
                 try
@@ -187,10 +185,9 @@ namespace VideoEditorWPF.Services
                         frameBytes = await GetOrFetchFrame(clip.FilePath, timeInClip);
                     }
 
-                    // ✅ Отрисовка ТОЛЬКО в UI потоке
                     bitmap.Dispatcher.Invoke(() =>
                     {
-                        bitmap.Lock(); // ✅ Правильно: лочим ВНУТРИ Invoke
+                        bitmap.Lock();
                         try
                         {
                             if (frameBytes != null && frameBytes.Length == _previewWidth * _previewHeight * 4)
@@ -209,7 +206,7 @@ namespace VideoEditorWPF.Services
                         }
                         finally
                         {
-                            bitmap.Unlock(); // ✅ Разлочим в finally
+                            bitmap.Unlock();
                         }
                     });
                 }
@@ -224,49 +221,20 @@ namespace VideoEditorWPF.Services
         /// <summary>
         /// Получает кадр из кэша или декодирует новый
         /// </summary>
-        //private async Task<byte[]> GetOrFetchFrame(string filePath, double timeInClip)
-        //{
-        //    // Проверяем кэш
-        //    var cached = GetCachedFrame(filePath, timeInClip);
-        //    if (cached != null) return cached;
-
-        //    // Получаем или создаем декодер
-        //    if (!_videoDecoders.TryGetValue(filePath, out var decoder))
-        //    {
-        //        decoder = new VideoDecoder(filePath);
-        //        _videoDecoders[filePath] = decoder;
-        //    }
-
-        //    // Декодируем кадр
-        //    var frameBytes = await decoder.GetFrameAsync(filePath, timeInClip);
-
-        //    // Сохраняем в кэш
-        //    if (frameBytes != null)
-        //    {
-        //        EnsureCache(filePath);
-        //        int cacheKey = (int)(timeInClip * 30);
-        //        _frameCaches[filePath].Frames[cacheKey] = frameBytes;
-        //    }
-
-        //    return frameBytes;
-        //}
 
         private async Task<byte[]> GetOrFetchFrame(string filePath, double timeInClip)
         {
-            // 1. Проверяем кэш ПЕРВЫМ
             var cached = GetCachedFrame(filePath, timeInClip);
             if (cached != null)
             {
                 return cached;
             }
 
-            // 2. Декодируем
             var decoder = _videoDecoders.TryGetValue(filePath, out var d) ? d :
                           (_videoDecoders[filePath] = new VideoDecoder(filePath));
 
             var frameBytes = await decoder.GetFrameAsync(filePath, timeInClip);
 
-            // 3. Сохраняем в кэш (30fps разрешение)
             if (frameBytes != null)
             {
                 EnsureCache(filePath);
@@ -313,7 +281,6 @@ namespace VideoEditorWPF.Services
 
             int targetKey = (int)(timeInClip * 30);
 
-            // Проверяем ближайшие ключи
             for (int delta = -1; delta <= 1; delta++)
             {
                 if (cache.Frames.TryGetValue(targetKey + delta, out var frame))

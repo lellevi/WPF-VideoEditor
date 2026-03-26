@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -157,7 +158,6 @@ namespace VideoEditorWPF.ViewModels
                 }
             }
 
-            // Минимум 30 секунд для пустого таймлайна
             if (maxDuration == 0)
                 maxDuration = 30;
 
@@ -278,32 +278,13 @@ namespace VideoEditorWPF.ViewModels
             OnPropertyChanged(nameof(CalculatedHeight));
         }
 
-        //public void AddClipToTrack(MediaFile mediaFile)
-        //{
-        //    bool isVideo = !mediaFile.FilePath.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) &&
-        //                  !mediaFile.FilePath.EndsWith(".wav", StringComparison.OrdinalIgnoreCase);
-
-        //    var track = Tracks.FirstOrDefault(t => t.Type == (isVideo ? MediaType.Video : MediaType.Audio));
-
-        //    if (track == null)
-        //    {
-        //        track = CreateNewTrack(isVideo ? MediaType.Video : MediaType.Audio);
-        //        Tracks.Add(track);
-        //        ReindexTracks();
-        //    }
-
-        //    AddClipToTrack(track, mediaFile);
-        //}
-
         public async void AddClipToTrack(MediaFile mediaFile)
         {
             Track track = null;
 
             try
             {
-                // ✅ 1. Более НАДЕЖНАЯ загрузка длительности
                 double durationSeconds = await MediaFile.GetDurationFFmpegAsync(mediaFile.FilePath);
-                // ✅ Проверяем результат FFmpeg
                 if (durationSeconds <= 0)
                 {
                     durationSeconds = 30.0;
@@ -323,16 +304,13 @@ namespace VideoEditorWPF.ViewModels
                     ReindexTracks();
                 }
 
-                // ✅ 2. ДОБАВЛЯЕМ КЛИП
                 AddClipToTrack(track, mediaFile);
 
-                // ✅ 3. Обновляем TotalDuration
                 OnPropertyChanged(nameof(TotalDurationSeconds));
                 OnPropertyChanged(nameof(TotalDurationString));
             }
             catch (Exception ex)
             {
-                // ✅ Fallback БЕЗ повторного вызова
                 mediaFile.Duration = TimeSpan.FromSeconds(30.0);
 
                 if (track != null)
@@ -345,8 +323,6 @@ namespace VideoEditorWPF.ViewModels
                 }
             }
         }
-
-
 
         private Track CreateNewTrack(MediaType type)
         {

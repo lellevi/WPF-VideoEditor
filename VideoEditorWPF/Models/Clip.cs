@@ -12,6 +12,9 @@ namespace VideoEditorWPF.Models
         public bool IsVideoClip { get; set; }
         public int TrackIndex { get; set; }
 
+        //public double StartX { get; set; }
+        //public double Width { get; set; }
+
         public double GetOffsetPixels(double timelineScale) => OffsetSeconds * timelineScale;
         public double GetWidth(double timelineScale) => DurationSeconds * timelineScale;
     }

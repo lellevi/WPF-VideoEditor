@@ -115,48 +115,70 @@ namespace VideoEditorWPF.Models
         {
             try
             {
-                var ffmpegPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg", "ffmpeg.exe");
-                if (!File.Exists(ffmpegPath))
+                var appDir = AppDomain.CurrentDomain.BaseDirectory;
+                var ffprobePath = Path.Combine(appDir, "ffmpeg", "ffprobe.exe");
+
+                if (!File.Exists(ffprobePath))
+                {
+                    ffprobePath = Path.Combine(appDir, "ffmpeg", "ffmpeg.exe");
+                }
+
+                if (!File.Exists(ffprobePath))
                 {
                     return 30.0;
                 }
 
                 var psi = new ProcessStartInfo
                 {
-                    FileName = ffmpegPath,
-                    Arguments = $"-i \"{filePath}\" -show_entries format=duration -v quiet -of csv=\"p=0\" -nostats",
+                    FileName = ffprobePath,
+                    Arguments = $"-v quiet -show_entries format=duration -of csv=\"p=0\" -i \"{filePath}\"",
                     RedirectStandardOutput = true,
-                    RedirectStandardError = true,  // Логируем ошибки
+                    RedirectStandardError = true,
                     UseShellExecute = false,
                     CreateNoWindow = true
                 };
 
                 using var process = Process.Start(psi);
-                if (process == null) return 30.0;
-
-                var output = await process.StandardOutput.ReadToEndAsync();
-                var stderr = await process.StandardError.ReadToEndAsync();
-
-                // ✅ Пробуем разные варианты парсинга
-                string cleanOutput = output.Trim();
-                if (string.IsNullOrWhiteSpace(cleanOutput))
+                if (process == null)
                 {
                     return 30.0;
                 }
 
-                if (double.TryParse(cleanOutput, System.Globalization.NumberStyles.Float,
-                                   System.Globalization.CultureInfo.InvariantCulture, out double duration) &&
-                    duration > 0)
+                var output = await process.StandardOutput.ReadToEndAsync();
+                var stderr = await process.StandardError.ReadToEndAsync();
+
+                process.WaitForExit();
+
+                Debug.WriteLine($"[ffprobe raw] Duration output: '{output.Trim()}' for {filePath}");
+                if (!string.IsNullOrWhiteSpace(stderr))
+                {
+                    Debug.WriteLine($"[ffprobe error] {stderr}");
+                }
+
+                var clean = output.Trim();
+                if (string.IsNullOrWhiteSpace(clean))
+                {
+                    return 30.0;
+                }
+
+                if (double.TryParse(
+                        clean,
+                        NumberStyles.Float,
+                        CultureInfo.InvariantCulture,
+                        out double duration) &&
+                    duration > 0.0 &&
+                    duration <= 86400.0) // максимум 24 ч, чтобы отфильтровать явный бред
                 {
                     return duration;
                 }
-            }
-            catch (ArgumentException ex)
-            {
-                throw new ArgumentException($"GetDuration exception: {ex.Message}");
-            }
 
-            return 30.0;  // Всегда возвращаем fallback
+                return 30.0;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[GetDurationFFmpegAsync] Error: {ex.Message}");
+                return 30.0;
+            }
         }
 
     }

@@ -12,18 +12,17 @@ namespace VideoEditorWPF.Factories
     {
         public Clip CreateClip(MediaFile mediaFile, double startTimeSeconds, double timelineScale, int trackIndex)
         {
-            bool isVideo = !mediaFile.FilePath.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) &&
-                           !mediaFile.FilePath.EndsWith(".wav", StringComparison.OrdinalIgnoreCase);
-
             return new Clip
             {
                 FilePath = mediaFile.FilePath,
+                IsVideoClip = mediaFile.FilePath.EndsWith(".mp4") || mediaFile.FilePath.EndsWith(".avi") || mediaFile.FilePath.EndsWith(".mkv"),
                 OffsetSeconds = startTimeSeconds,
-                DurationSeconds = mediaFile.Duration.TotalSeconds,
-                IsVideoClip = isVideo,
+                DurationSeconds = (float)mediaFile.Duration.TotalSeconds,  // ← Из MediaFile!
+
                 TrackIndex = trackIndex
             };
         }
+
     }
 }
 // Фабрика для создания клипов видеоредактора.

@@ -44,7 +44,6 @@ namespace VideoEditorWPF
             var clipFactory = new ClipFactory();
             var timelineVM = new TimelineViewModel(clipFactory);
 
-            // ✅ Создаем PreviewRenderService ОДИН РАЗ
             _previewRenderService = new PreviewRenderService();
             var previewVM = new PreviewViewModel(timelineVM, _previewRenderService);
 
@@ -52,19 +51,15 @@ namespace VideoEditorWPF
 
             DataContext = ViewModel;
 
-            // ✅ Используем существующие сервисы
             var clipRenderService = new ClipRenderService();
             _trackRenderService = new TrackRenderService(clipRenderService);
             _timelineRenderService = new TimelineRenderService();
-            // ❌ УДАЛЕНО: _previewRenderService = new PreviewRenderService();
 
-            // New services
             ISnapIndicatorService snapIndicator = new SnapIndicatorService();
             _interactionService = new TimelineInteractionService(snapIndicator);
             _playheadService = new PlayheadService();
             _scrollSyncService = new ScrollSyncService();
 
-            // ✅ Инициализируем превью с ТЕМ ЖЕ сервисом
             PreviewCanvas.Source = _previewRenderService.InitializePreview();
 
             SetupEventHandlers();
