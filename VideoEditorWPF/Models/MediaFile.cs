@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Threading.Tasks;
 using IOPath = System.IO.Path;
 
 namespace VideoEditorWPF.Models
@@ -109,6 +110,55 @@ namespace VideoEditorWPF.Models
 
             return (false, TimeSpan.Zero);
         }
+
+        public static async Task<double> GetDurationFFmpegAsync(string filePath)
+        {
+            try
+            {
+                var ffmpegPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg", "ffmpeg.exe");
+                if (!File.Exists(ffmpegPath))
+                {
+                    return 30.0;
+                }
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = ffmpegPath,
+                    Arguments = $"-i \"{filePath}\" -show_entries format=duration -v quiet -of csv=\"p=0\" -nostats",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,  // Логируем ошибки
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using var process = Process.Start(psi);
+                if (process == null) return 30.0;
+
+                var output = await process.StandardOutput.ReadToEndAsync();
+                var stderr = await process.StandardError.ReadToEndAsync();
+
+                // ✅ Пробуем разные варианты парсинга
+                string cleanOutput = output.Trim();
+                if (string.IsNullOrWhiteSpace(cleanOutput))
+                {
+                    return 30.0;
+                }
+
+                if (double.TryParse(cleanOutput, System.Globalization.NumberStyles.Float,
+                                   System.Globalization.CultureInfo.InvariantCulture, out double duration) &&
+                    duration > 0)
+                {
+                    return duration;
+                }
+            }
+            catch (ArgumentException ex)
+            {
+                throw new ArgumentException($"GetDuration exception: {ex.Message}");
+            }
+
+            return 30.0;  // Всегда возвращаем fallback
+        }
+
     }
 }
 // Хранит путь, имя, длительность, превью. Автоматически получает реальную длительность через ffprobe/ffmpeg.

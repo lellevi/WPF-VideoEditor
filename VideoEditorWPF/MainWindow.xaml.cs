@@ -44,6 +44,7 @@ namespace VideoEditorWPF
             var clipFactory = new ClipFactory();
             var timelineVM = new TimelineViewModel(clipFactory);
 
+            // ✅ Создаем PreviewRenderService ОДИН РАЗ
             _previewRenderService = new PreviewRenderService();
             var previewVM = new PreviewViewModel(timelineVM, _previewRenderService);
 
@@ -51,10 +52,11 @@ namespace VideoEditorWPF
 
             DataContext = ViewModel;
 
+            // ✅ Используем существующие сервисы
             var clipRenderService = new ClipRenderService();
             _trackRenderService = new TrackRenderService(clipRenderService);
             _timelineRenderService = new TimelineRenderService();
-            _previewRenderService = new PreviewRenderService();
+            // ❌ УДАЛЕНО: _previewRenderService = new PreviewRenderService();
 
             // New services
             ISnapIndicatorService snapIndicator = new SnapIndicatorService();
@@ -62,6 +64,7 @@ namespace VideoEditorWPF
             _playheadService = new PlayheadService();
             _scrollSyncService = new ScrollSyncService();
 
+            // ✅ Инициализируем превью с ТЕМ ЖЕ сервисом
             PreviewCanvas.Source = _previewRenderService.InitializePreview();
 
             SetupEventHandlers();
@@ -78,7 +81,18 @@ namespace VideoEditorWPF
         {
             if (PreviewCanvas.Source is System.Windows.Media.Imaging.WriteableBitmap bitmap)
             {
-                await _previewRenderService.UpdatePreview(bitmap, time, ViewModel.Timeline.Tracks);
+                try
+                {
+                    await _previewRenderService.UpdatePreview(bitmap, time, ViewModel.Timeline.Tracks);
+                }
+                catch (ArgumentException ex)
+                {
+                    throw new ArgumentException($"Ошибка обновления кадра: {ex.Message}");
+                }
+            }
+            else
+            {
+                throw new ArgumentException("PreviewCanvas.Source не является WriteableBitmap!");
             }
         }
 

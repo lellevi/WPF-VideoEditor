@@ -12,7 +12,7 @@ namespace VideoEditorWPF.Services
 
     public class TimelineService : ITimelineService
     {
-        private const double DefaultTimelineLengthSeconds = 30.0;
+        private const double DefaultTimelineLengthSeconds = 0.0;
 
         public void AddClipToTimeline(MediaFile mediaFile, TimelineViewModel timeline)
         {

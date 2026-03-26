@@ -1,12 +1,15 @@
 ﻿using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using VideoEditorWPF.Commands;
 using VideoEditorWPF.Factories;
 using VideoEditorWPF.Models;
+using IOPath = System.IO.Path;
 
 namespace VideoEditorWPF.ViewModels
 {
@@ -140,7 +143,7 @@ namespace VideoEditorWPF.ViewModels
         /// <summary>
         /// Вычисляет общую длительность всех клипов на таймлайне
         /// </summary>
-        private TimeSpan GetTotalDuration()
+        public TimeSpan GetTotalDuration()
         {
             double maxDuration = 0;
 
@@ -275,22 +278,75 @@ namespace VideoEditorWPF.ViewModels
             OnPropertyChanged(nameof(CalculatedHeight));
         }
 
-        public void AddClipToTrack(MediaFile mediaFile)
+        //public void AddClipToTrack(MediaFile mediaFile)
+        //{
+        //    bool isVideo = !mediaFile.FilePath.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) &&
+        //                  !mediaFile.FilePath.EndsWith(".wav", StringComparison.OrdinalIgnoreCase);
+
+        //    var track = Tracks.FirstOrDefault(t => t.Type == (isVideo ? MediaType.Video : MediaType.Audio));
+
+        //    if (track == null)
+        //    {
+        //        track = CreateNewTrack(isVideo ? MediaType.Video : MediaType.Audio);
+        //        Tracks.Add(track);
+        //        ReindexTracks();
+        //    }
+
+        //    AddClipToTrack(track, mediaFile);
+        //}
+
+        public async void AddClipToTrack(MediaFile mediaFile)
         {
-            bool isVideo = !mediaFile.FilePath.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) &&
-                          !mediaFile.FilePath.EndsWith(".wav", StringComparison.OrdinalIgnoreCase);
+            Track track = null;
 
-            var track = Tracks.FirstOrDefault(t => t.Type == (isVideo ? MediaType.Video : MediaType.Audio));
-
-            if (track == null)
+            try
             {
-                track = CreateNewTrack(isVideo ? MediaType.Video : MediaType.Audio);
-                Tracks.Add(track);
-                ReindexTracks();
-            }
+                // ✅ 1. Более НАДЕЖНАЯ загрузка длительности
+                double durationSeconds = await MediaFile.GetDurationFFmpegAsync(mediaFile.FilePath);
+                // ✅ Проверяем результат FFmpeg
+                if (durationSeconds <= 0)
+                {
+                    durationSeconds = 30.0;
+                }
 
-            AddClipToTrack(track, mediaFile);
+                mediaFile.Duration = TimeSpan.FromSeconds(durationSeconds);
+
+                bool isVideo = !mediaFile.FilePath.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) &&
+                              !mediaFile.FilePath.EndsWith(".wav", StringComparison.OrdinalIgnoreCase);
+
+                track = Tracks.FirstOrDefault(t => t.Type == (isVideo ? MediaType.Video : MediaType.Audio));
+
+                if (track == null)
+                {
+                    track = CreateNewTrack(isVideo ? MediaType.Video : MediaType.Audio);
+                    Tracks.Add(track);
+                    ReindexTracks();
+                }
+
+                // ✅ 2. ДОБАВЛЯЕМ КЛИП
+                AddClipToTrack(track, mediaFile);
+
+                // ✅ 3. Обновляем TotalDuration
+                OnPropertyChanged(nameof(TotalDurationSeconds));
+                OnPropertyChanged(nameof(TotalDurationString));
+            }
+            catch (Exception ex)
+            {
+                // ✅ Fallback БЕЗ повторного вызова
+                mediaFile.Duration = TimeSpan.FromSeconds(30.0);
+
+                if (track != null)
+                {
+                    AddClipToTrack(track, mediaFile);
+                }
+                else
+                {
+                    throw new ArgumentException("Не удалось создать трек - клип НЕ добавлен");
+                }
+            }
         }
+
+
 
         private Track CreateNewTrack(MediaType type)
         {
