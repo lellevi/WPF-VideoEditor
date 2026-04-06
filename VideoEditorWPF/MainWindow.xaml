@@ -1,0 +1,324 @@
+﻿<Window x:Class="VideoEditorWPF.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:models="clr-namespace:VideoEditorWPF.Models"
+        mc:Ignorable="d"
+        Title="Video Editor WPF" Height="800" Width="1400">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Styles/TrackStyles.xaml"/>
+                <ResourceDictionary Source="Styles/ButtonStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="250"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="300"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- LEFT: Media Library -->
+        <Border Grid.Column="0" BorderBrush="Gray" BorderThickness="1" Margin="5">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="📁 Media Library"
+                      Margin="10" FontWeight="Bold" HorizontalAlignment="Center"/>
+
+                <ListBox x:Name="MediaLibraryList" Grid.Row="1"
+                     ItemsSource="{Binding MediaFiles}"
+                     Margin="10" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     MouseDoubleClick="MediaLibraryList_MouseDoubleClick">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Image Source="{Binding ThumbnailPath}" Width="50" Height="40" Margin="0,0,10,0"/>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding FileName}" FontWeight="Bold"/>
+                                    <TextBlock Text="{Binding DurationString}" Foreground="Gray" FontSize="12"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <Button x:Name="AddMediaButton" Grid.Row="2" Command="{Binding AddMediaCommand}"
+                    Content="➕ Add Files" Height="35" Margin="10" VerticalAlignment="Bottom"/>
+            </Grid>
+        </Border>
+
+        <!-- MIDDLE: Preview + Timeline -->
+        <Grid Grid.Column="1" Margin="5">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="400"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Preview -->
+            <Border Grid.Row="0" BorderBrush="Gray" BorderThickness="1">
+                <Grid>
+                    <!-- MediaElement (оставляем без изменений) -->
+                    <MediaElement x:Name="PreviewMediaElement"
+                             LoadedBehavior="Manual" UnloadedBehavior="Stop"
+                             Stretch="Uniform"/>
+
+                    <!-- Image для рендеринга поверх MediaElement -->
+                    <Image x:Name="PreviewCanvas" Stretch="Uniform"/>
+                </Grid>
+            </Border>
+
+            <!-- Transport Controls -->
+            <!-- Transport Controls (замените полностью Grid.Row="1") -->
+            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="20">
+                <Button Command="{Binding Timeline.ResetPlayheadCommand}"
+            Content="⏮|" Width="45" Height="35" Margin="5"
+            ToolTip="Reset to Start"/>
+
+                <Button Command="{Binding Preview.PreviousFrameCommand}"
+            Content="⏮" Width="45" Height="35" Margin="5"/>
+
+                <!-- ✅ ПРАВИЛЬНАЯ структура Style с Triggers -->
+                <Button Command="{Binding Preview.PlayPauseCommand}"
+            Width="45" Height="35" Margin="5">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Content" Value="▶"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Timeline.IsPlaying}" Value="True">
+                                    <Setter Property="Content" Value="⏸"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+                <Button Command="{Binding Preview.NextFrameCommand}" Content="⏭" Width="45" Height="35" Margin="5"/>
+                <TextBlock x:Name="CurrentTimeLabel"
+                      Text="{Binding Preview.CurrentTime, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
+                      Margin="25,0,15,0" VerticalAlignment="Center" FontWeight="Bold"/>
+                <Slider x:Name="TimelineSlider" Width="250" Height="25" Margin="10,0"
+                    Minimum="0"
+                    Maximum="{Binding Preview.TotalDuration.TotalSeconds}"
+                    Value="{Binding Preview.CurrentTimeSeconds, Mode=TwoWay}"/>
+                <TextBlock x:Name="TotalTimeLabel"
+                      Text="{Binding Preview.TotalDuration, StringFormat={}{0:hh\\:mm\\:ss}}"
+                      Margin="10,0" VerticalAlignment="Center"/>
+            </StackPanel>
+
+
+
+            <!-- Timeline with Track Management -->
+            <Border Grid.Row="2" BorderBrush="Gray" BorderThickness="1">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="35"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="120"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Track Control Buttons (Top Left) -->
+                    <Border Grid.Row="0" Grid.Column="0" Background="#FF252526" BorderBrush="#FF3E3E42" BorderThickness="0,0,1,1">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Button Command="{Binding Timeline.AddVideoTrackCommand}"
+                                    Style="{StaticResource AddVideoTrackButtonStyle}"
+                                    Content="🎥➕" Width="34" Height="28" Margin="2,0"
+                                    ToolTip="Add Video Track" FontSize="10"/>
+                            <!--<Button Command="{Binding Timeline.AddAudioTrackCommand}"
+                                    Style="{StaticResource AddAudioTrackButtonStyle}"
+                                    Content="🔊➕" Width="34" Height="28" Margin="2,0"
+                                    ToolTip="Add Audio Track" FontSize="10"/>-->
+                            <Button Command="{Binding Timeline.DeleteSelectedTrackCommand}"
+                                    Style="{StaticResource DeleteTrackButtonStyle}"
+                                    Content="❌" Width="34" Height="28" Margin="2,0"
+                                    ToolTip="Delete Selected Track" FontSize="12"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Time Ruler (Top Right) -->
+                    <Border Grid.Row="0" Grid.Column="1" Background="#FF252526" BorderBrush="#FF3E3E42" BorderThickness="0,0,0,1">
+                        <ScrollViewer x:Name="TimeRulerScrollViewer"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Disabled">
+                            <Canvas x:Name="TimeRulerCanvas" Height="35" Background="Transparent"
+                                    MouseLeftButtonDown="TimeRulerCanvas_MouseLeftButtonDown"/>
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- Track Headers (Bottom Left) -->
+                    <Border Grid.Row="1" Grid.Column="0" Background="#FF2D2D2D" BorderBrush="#FF3E3E42" BorderThickness="0,0,1,0">
+                        <ScrollViewer x:Name="TrackHeadersScrollViewer"
+                                      VerticalScrollBarVisibility="Hidden"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      ScrollChanged="TrackHeadersScrollViewer_ScrollChanged">
+                            <ItemsControl ItemsSource="{Binding Timeline.Tracks}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Height="70">
+                                            <Border>
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="#FF2A4A5A"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Type}" Value="Audio">
+                                                                <Setter Property="Background" Value="#FF4A3A2A"/>
+                                                            </DataTrigger>
+                                                            <MultiDataTrigger>
+                                                                <MultiDataTrigger.Conditions>
+                                                                    <Condition Binding="{Binding IsSelected}" Value="True"/>
+                                                                    <Condition Binding="{Binding Type}" Value="Video"/>
+                                                                </MultiDataTrigger.Conditions>
+                                                                <Setter Property="Background" Value="#FF3A6A7A"/>
+                                                            </MultiDataTrigger>
+                                                            <MultiDataTrigger>
+                                                                <MultiDataTrigger.Conditions>
+                                                                    <Condition Binding="{Binding IsSelected}" Value="True"/>
+                                                                    <Condition Binding="{Binding Type}" Value="Audio"/>
+                                                                </MultiDataTrigger.Conditions>
+                                                                <Setter Property="Background" Value="#FF6A5A4A"/>
+                                                            </MultiDataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+
+                                                <StackPanel Margin="8,6">
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                        <TextBlock FontSize="11" Foreground="White">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Text" Value="📹 "/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding Type}" Value="Audio">
+                                                                            <Setter Property="Text" Value="🔊 "/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                        <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" FontSize="11"/>
+                                                        <TextBlock Text=" • DEF" Foreground="LightBlue" FontSize="9" Margin="4,1,0,0" Style="{StaticResource DefaultBadgeStyle}"/>
+                                                    </StackPanel>
+
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <ToggleButton Content="🔇" Style="{StaticResource TrackToggleButtonStyle}"
+                                                                      IsChecked="{Binding IsMuted}" Width="26" Height="22"
+                                                                      Margin="0,0,2,0" FontSize="10" ToolTip="Mute track"/>
+                                                        <ToggleButton Content="🔒" Style="{StaticResource TrackToggleButtonStyle}"
+                                                                      IsChecked="{Binding IsLocked}" Width="26" Height="22"
+                                                                      Margin="2,0,0,0" FontSize="10" ToolTip="Lock track"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <Rectangle Height="1" VerticalAlignment="Bottom" Fill="#FF3E3E42"/>
+                                            <Border Background="Transparent" Cursor="Hand"
+                                                    MouseLeftButtonDown="TrackHeader_MouseLeftButtonDown" Tag="{Binding}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- Timeline Canvas (Bottom Right) -->
+                    <ScrollViewer Grid.Row="1" Grid.Column="1"
+                                  x:Name="TimelineScrollViewer"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  VerticalAlignment="Top"
+                                  Background="#FF1E1E1E"
+                                  ScrollChanged="TimelineScrollViewer_ScrollChanged">
+                        <Canvas x:Name="TimelineCanvas"
+                                Height="{Binding Timeline.CalculatedHeight}"
+                                VerticalAlignment="Top"
+                                Background="#FF2D2D2D"
+                                MouseLeftButtonDown="TimelineCanvas_MouseLeftButtonDown"
+                                MouseMove="TimelineCanvas_MouseMove"
+                                MouseLeftButtonUp="TimelineCanvas_MouseLeftButtonUp"
+                                MouseWheel="TimelineCanvas_MouseWheel">
+
+                            <!-- Playhead -->
+                            <Rectangle x:Name="Playhead" Width="3" Height="{Binding Timeline.CalculatedHeight}"
+                                       Fill="Red" Canvas.Left="{Binding Timeline.PlayheadPosition}" Panel.ZIndex="999"/>
+                        </Canvas>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <!-- Zoom -->
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="20">
+                <TextBlock Text="🔍 Zoom:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <Button Command="{Binding Timeline.ZoomOutCommand}" Content="−" Width="30" Height="25"
+        Margin="0,0,5,0" FontSize="16" FontWeight="Bold" ToolTip="Zoom Out (−0.1)"/>
+                <Slider x:Name="ZoomSlider" Width="150" Height="25"
+                   Minimum="{Binding Timeline.MinTimelineScale}"
+                   Maximum="{Binding Timeline.MaxTimelineScale}"
+                   Value="{Binding Timeline.TimelineScale}"/>
+                <Button Command="{Binding Timeline.ZoomInCommand}" Content="+" Width="30" Height="25"
+        Margin="5,0,0,0" FontSize="16" FontWeight="Bold" ToolTip="Zoom In (+0.1)"/>
+                <TextBlock x:Name="ZoomLabel" Text="{Binding Timeline.TimelineScale, StringFormat={}{0:F1}x}"
+                      Margin="15,0" VerticalAlignment="Center"/>
+
+                <TextBlock VerticalAlignment="Center" Margin="30,0,0,0" Foreground="Gray">
+                    <Run Text="Selected: "/>
+                    <Run Text="{Binding Timeline.SelectedTrack.Name, Mode=OneWay}" FontWeight="Bold" Foreground="White"/>
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Timeline.SelectedTrack}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StackPanel>
+        </Grid>
+
+        <!-- RIGHT: Properties -->
+        <Border Grid.Column="2" BorderBrush="Gray" BorderThickness="1" Margin="5">
+            <StackPanel Margin="15">
+                <TextBlock Text="⚙️ Properties" FontWeight="Bold" FontSize="16" Margin="0,0,0,20"/>
+
+                <TextBlock x:Name="SelectedClipLabel" Text="No clip selected"
+                      FontWeight="SemiBold" Margin="0,0,0,15"/>
+
+                <TextBlock Text="⏱️ Start:" Margin="0,0,0,5"/>
+                <Slider x:Name="ClipStartSlider" Height="25" Margin="0,0,0,15"/>
+
+                <TextBlock Text="⏳ Duration:" Margin="0,0,0,5"/>
+                <Slider x:Name="ClipDurationSlider" Height="25" Margin="0,0,0,15"/>
+
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                    <CheckBox x:Name="MuteCheckBox" Content="🔇 Mute" Margin="0,0,15,0"/>
+                    <TextBlock Text="🔊 Volume:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <Slider x:Name="VolumeSlider" Width="120" Height="25"/>
+                </StackPanel>
+
+                <Button x:Name="ExportButton" Command="{Binding ExportCommand}" Content="💾 Export Video"
+                   Height="50" Background="DodgerBlue" Foreground="White"
+                   FontWeight="Bold" FontSize="14"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>
