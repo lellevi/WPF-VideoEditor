@@ -30,6 +30,8 @@ namespace VideoEditorWPF.ViewModels
         private double _timelineLength = 30.0;
         private double _viewportWidth = 0; // Will be set when window loads
 
+        private DateTime _lastClipAddTime = DateTime.MinValue;
+        private readonly TimeSpan _debounceInterval = TimeSpan.FromMilliseconds(300);
         public ObservableCollection<Track> Tracks { get; }
 
         public Track SelectedTrack
@@ -169,7 +171,7 @@ namespace VideoEditorWPF.ViewModels
         public double MaxTimelineScale => MaxScale;
 
         public ICommand AddVideoTrackCommand { get; }
-        public ICommand AddAudioTrackCommand { get; }
+        //public ICommand AddAudioTrackCommand { get; }
         public ICommand DeleteSelectedTrackCommand { get; }
         public ICommand ResetPlayheadCommand { get; }
         public ICommand ZoomInCommand { get; }
@@ -185,7 +187,7 @@ namespace VideoEditorWPF.ViewModels
             InitializeDefaultTracks();
 
             AddVideoTrackCommand = new RelayCommand(_ => AddTrack(MediaType.Video));
-            AddAudioTrackCommand = new RelayCommand(_ => AddTrack(MediaType.Audio));
+            //AddAudioTrackCommand = new RelayCommand(_ => AddTrack(MediaType.Audio));
             DeleteSelectedTrackCommand = new RelayCommand(_ => DeleteSelectedTrack(),
                 _ => SelectedTrack != null && !SelectedTrack.IsDefault && CanDeleteTrack());
             ResetPlayheadCommand = new RelayCommand(_ => ResetPlayhead());
@@ -218,14 +220,14 @@ namespace VideoEditorWPF.ViewModels
             };
             Tracks.Add(videoTrack);
 
-            var audioTrack = new Track
-            {
-                Name = "Audio 1",
-                Type = MediaType.Audio,
-                IsDefault = true,
-                TrackIndex = 1
-            };
-            Tracks.Add(audioTrack);
+            //var audioTrack = new Track
+            //{
+            //    Name = "Audio 1",
+            //    Type = MediaType.Audio,
+            //    IsDefault = true,
+            //    TrackIndex = 1
+            //};
+            //Tracks.Add(audioTrack);
         }
 
         public void AddTrack(MediaType trackType)
@@ -280,8 +282,14 @@ namespace VideoEditorWPF.ViewModels
 
         public async void AddClipToTrack(MediaFile mediaFile)
         {
-            Track track = null;
+            if (DateTime.Now - _lastClipAddTime < _debounceInterval)
+            {
+                return;
+            }
 
+            _lastClipAddTime = DateTime.Now;
+
+            Track targetTrack = null;
             try
             {
                 double durationSeconds = await MediaFile.GetDurationFFmpegAsync(mediaFile.FilePath);
@@ -295,32 +303,79 @@ namespace VideoEditorWPF.ViewModels
                 bool isVideo = !mediaFile.FilePath.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) &&
                               !mediaFile.FilePath.EndsWith(".wav", StringComparison.OrdinalIgnoreCase);
 
-                track = Tracks.FirstOrDefault(t => t.Type == (isVideo ? MediaType.Video : MediaType.Audio));
+                targetTrack = GetOrCreateTrackForType(isVideo ? MediaType.Video : MediaType.Audio);
 
-                if (track == null)
-                {
-                    track = CreateNewTrack(isVideo ? MediaType.Video : MediaType.Audio);
-                    Tracks.Add(track);
-                    ReindexTracks();
-                }
-
-                AddClipToTrack(track, mediaFile);
+                AddClipAtomically(targetTrack, mediaFile);
 
                 OnPropertyChanged(nameof(TotalDurationSeconds));
                 OnPropertyChanged(nameof(TotalDurationString));
             }
             catch (Exception ex)
             {
-                mediaFile.Duration = TimeSpan.FromSeconds(30.0);
+                Debug.WriteLine($"Ошибка добавления клипа: {ex.Message}");
 
-                if (track != null)
+                if (targetTrack != null)
                 {
-                    AddClipToTrack(track, mediaFile);
+                    mediaFile.Duration = TimeSpan.FromSeconds(30.0);
+                    AddClipAtomically(targetTrack, mediaFile);
                 }
-                else
-                {
-                    throw new ArgumentException("Не удалось создать трек - клип НЕ добавлен");
-                }
+            }
+        }
+
+        private void SetInstanceNumber(Clip clip, Track track)
+        {
+            var sameFileClips = track.Clips
+                .Where(c => c.FilePath == clip.FilePath)
+                .Count();
+            clip.InstanceNumber = sameFileClips + 1;
+        }
+
+        private void AddClipAtomically(Track track, MediaFile mediaFile)
+        {
+            lock (track.Clips)
+            {
+                double startTimeSeconds = PlayheadTimeSeconds;
+                var freePosition = FindFreePosition(track, startTimeSeconds);
+                startTimeSeconds = freePosition;
+
+                int trackIndex = Tracks.IndexOf(track);
+                var clip = _clipFactory.CreateClip(mediaFile, startTimeSeconds, TimelineScale, trackIndex);
+
+                SetInstanceNumber(clip, track);
+
+                track.Clips.Add(clip);
+            }
+        }
+
+        private Track GetOrCreateTrackForType(MediaType type)
+        {
+            Track track = SelectedTrack?.Type == type ? SelectedTrack :
+                          Tracks.FirstOrDefault(t => t.Type == type);
+
+            if (track == null)
+            {
+                track = CreateNewTrack(type);
+                Tracks.Insert(type == MediaType.Video ? 0 : Tracks.Count, track);
+                ReindexTracks();
+            }
+
+            return track;
+        }
+
+        private double FindFreePosition(Track track, double preferredStart)
+        {
+            double currentPos = preferredStart;
+
+            while (true)
+            {
+                var overlapping = track.Clips.FirstOrDefault(c =>
+                    currentPos >= c.OffsetSeconds &&
+                    currentPos < c.OffsetSeconds + c.DurationSeconds);
+
+                if (overlapping == null)
+                    return currentPos;
+
+                currentPos = overlapping.OffsetSeconds + overlapping.DurationSeconds;
             }
         }
 

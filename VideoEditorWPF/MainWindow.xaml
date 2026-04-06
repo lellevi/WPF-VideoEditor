@@ -138,10 +138,10 @@
                                     Style="{StaticResource AddVideoTrackButtonStyle}"
                                     Content="🎥➕" Width="34" Height="28" Margin="2,0"
                                     ToolTip="Add Video Track" FontSize="10"/>
-                            <Button Command="{Binding Timeline.AddAudioTrackCommand}"
+                            <!--<Button Command="{Binding Timeline.AddAudioTrackCommand}"
                                     Style="{StaticResource AddAudioTrackButtonStyle}"
                                     Content="🔊➕" Width="34" Height="28" Margin="2,0"
-                                    ToolTip="Add Audio Track" FontSize="10"/>
+                                    ToolTip="Add Audio Track" FontSize="10"/>-->
                             <Button Command="{Binding Timeline.DeleteSelectedTrackCommand}"
                                     Style="{StaticResource DeleteTrackButtonStyle}"
                                     Content="❌" Width="34" Height="28" Margin="2,0"

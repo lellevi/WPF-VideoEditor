@@ -11,9 +11,11 @@
             <DataTrigger Binding="{Binding Type}" Value="Video">
                 <Setter Property="Background" Value="#FF2A4A5A"/>
             </DataTrigger>
+            <!--
             <DataTrigger Binding="{Binding Type}" Value="Audio">
                 <Setter Property="Background" Value="#FF4A3A2A"/>
             </DataTrigger>
+             -->
             <MultiDataTrigger>
                 <MultiDataTrigger.Conditions>
                     <Condition Binding="{Binding IsSelected}" Value="True"/>
@@ -21,6 +23,7 @@
                 </MultiDataTrigger.Conditions>
                 <Setter Property="Background" Value="#FF3A6A7A"/>
             </MultiDataTrigger>
+            <!--
             <MultiDataTrigger>
                 <MultiDataTrigger.Conditions>
                     <Condition Binding="{Binding IsSelected}" Value="True"/>
@@ -28,6 +31,7 @@
                 </MultiDataTrigger.Conditions>
                 <Setter Property="Background" Value="#FF6A5A4A"/>
             </MultiDataTrigger>
+             -->
         </Style.Triggers>
     </Style>
 

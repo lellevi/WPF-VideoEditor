@@ -17,7 +17,7 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Add Audio Track Button Style -->
+    <!-- Add Audio Track Button Style
     <Style x:Key="AddAudioTrackButtonStyle" TargetType="Button">
         <Setter Property="Background" Value="#FF6A5A4A"/>
         <Setter Property="Foreground" Value="White"/>
@@ -32,7 +32,7 @@
             </Trigger>
         </Style.Triggers>
     </Style>
-
+-->
     <!-- Delete Track Button Style -->
     <Style x:Key="DeleteTrackButtonStyle" TargetType="Button">
         <Setter Property="Background" Value="#FF555555"/>

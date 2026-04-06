@@ -149,7 +149,6 @@ namespace VideoEditorWPF.Models
 
                 process.WaitForExit();
 
-                Debug.WriteLine($"[ffprobe raw] Duration output: '{output.Trim()}' for {filePath}");
                 if (!string.IsNullOrWhiteSpace(stderr))
                 {
                     Debug.WriteLine($"[ffprobe error] {stderr}");
