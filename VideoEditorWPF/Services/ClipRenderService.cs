@@ -19,6 +19,7 @@ namespace VideoEditorWPF.Services
 
         public void RenderClips(Canvas canvas, IEnumerable<Clip> clips, double trackTop, double timelineScale)
         {
+            canvas.Children.Clear();
             foreach (var clip in clips)
             {
                 double startX = clip.GetOffsetPixels(timelineScale);

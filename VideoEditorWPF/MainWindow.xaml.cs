@@ -212,7 +212,7 @@ namespace VideoEditorWPF
             RefreshTracks();
         }
 
-        private void RefreshTracks()
+        public void RefreshTracks()
         {
             _trackRenderService.ClearTracks(TimelineCanvas);
 

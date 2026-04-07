@@ -9,12 +9,41 @@ namespace VideoEditorWPF.Models
 {
     public partial class Clip : INotifyPropertyChanged
     {
+        private double _start = 0;  // секунда начала внутри видео
+        private double _duration = 0;  // длительность внутри видео
+
+        public double Start
+        {
+            get => _start;
+            set
+            {
+                if (!(_start == value))
+                {
+                    _start = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public double Duration
+        {
+            get => _duration;
+            set
+            {
+                if (!(_duration == value))
+                {
+                    _duration = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
         public string FilePath { get; set; }
         public bool IsVideoClip { get; set; }
         public int TrackIndex { get; set; }
 
         public string ClipId { get; set; } = System.Guid.NewGuid().ToString();
         public int InstanceNumber { get; set; } = 1;
+
 
         public double GetOffsetPixels(double timelineScale)
         {

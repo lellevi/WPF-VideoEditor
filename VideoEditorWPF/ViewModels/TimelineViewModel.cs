@@ -477,19 +477,19 @@ namespace VideoEditorWPF.ViewModels
             }
         }
 
-        public double SelectedClipStart
-        {
-            get => _selectedClip?.OffsetSeconds ?? 0.0;
-            set
-            {
-                if (_selectedClip != null)
-                {
-                    Debug.WriteLine($"SelectedClipStart set: {value:F3} -> OffsetSeconds = {value:F3}");
-                    _selectedClip.OffsetSeconds = value;
-                    OnPropertyChanged();
-                }
-            }
-        }
+        //public double SelectedClipStart
+        //{
+        //    get => _selectedClip?.OffsetSeconds ?? 0.0;
+        //    set
+        //    {
+        //        if (_selectedClip != null)
+        //        {
+        //            Debug.WriteLine($"SelectedClipStart set: {value:F3} -> OffsetSeconds = {value:F3}");
+        //            _selectedClip.OffsetSeconds = value;
+        //            OnPropertyChanged();
+        //        }
+        //    }
+        //}
 
         //public double SelectedClipDuration
         //{
@@ -507,6 +507,40 @@ namespace VideoEditorWPF.ViewModels
         //    }
         //}
 
+        //public double SelectedClipDuration
+        //{
+        //    get => _selectedClip?.DurationSeconds ?? 0.0;
+        //    set
+        //    {
+        //        if (_selectedClip != null)
+        //        {
+        //            Debug.WriteLine($"SelectedClipDuration set: {value:F3} -> DurationSeconds = {value:F3}");
+        //            _selectedClip.DurationSeconds = Math.Max(0.05, value);
+        //            OnPropertyChanged();
+        //        }
+        //    }
+        //}
+
+        // В TimelineViewModel
+        public double SelectedClipMaxDuration
+        {
+            get => _selectedClip?.TotalDurationSecondsFromMediaFile ?? 100;
+        }
+
+        public double SelectedClipStart
+        {
+            get => _selectedClip?.OffsetSeconds ?? 0.0;
+            set
+            {
+                if (_selectedClip != null)
+                {
+                    _selectedClip.OffsetSeconds = Math.Max(0.05, value);
+                    OnPropertyChanged();
+                    Application.Current.Dispatcher.Invoke(() => (Application.Current.MainWindow as MainWindow)?.RefreshTracks());
+                }
+            }
+        }
+
         public double SelectedClipDuration
         {
             get => _selectedClip?.DurationSeconds ?? 0.0;
@@ -514,17 +548,11 @@ namespace VideoEditorWPF.ViewModels
             {
                 if (_selectedClip != null)
                 {
-                    Debug.WriteLine($"SelectedClipDuration set: {value:F3} -> DurationSeconds = {value:F3}");
                     _selectedClip.DurationSeconds = Math.Max(0.05, value);
                     OnPropertyChanged();
+                    Application.Current.Dispatcher.Invoke(() => (Application.Current.MainWindow as MainWindow)?.RefreshTracks());
                 }
             }
-        }
-
-        // В TimelineViewModel
-        public double SelectedClipMaxDuration
-        {
-            get => _selectedClip?.TotalDurationSecondsFromMediaFile ?? 100;
         }
     }
 }
