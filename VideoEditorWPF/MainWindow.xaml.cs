@@ -311,12 +311,30 @@ namespace VideoEditorWPF
         }
 
 
+        //private void TimelineCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        //{
+        //    var position = e.GetPosition(TimelineCanvas);
+        //    bool isShiftPressed = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
+
+        //    _dragInfo = _interactionService.StartDrag(position, TimelineCanvas);
+
+        //    if (_dragInfo != null)
+        //    {
+        //        TimelineCanvas.CaptureMouse();
+        //    }
+        //    else
+        //    {
+        //        // Move playhead
+        //        _interactionService.MovePlayhead(position, ViewModel.Timeline, Playhead, isShiftPressed);
+        //    }
+        //}
         private void TimelineCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             var position = e.GetPosition(TimelineCanvas);
             bool isShiftPressed = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
 
-            _dragInfo = _interactionService.StartDrag(position, TimelineCanvas);
+            // ✅ Передаём ViewModel.Timeline
+            _dragInfo = _interactionService.StartDrag(position, TimelineCanvas, ViewModel.Timeline);
 
             if (_dragInfo != null)
             {
@@ -328,7 +346,6 @@ namespace VideoEditorWPF
                 _interactionService.MovePlayhead(position, ViewModel.Timeline, Playhead, isShiftPressed);
             }
         }
-
         private void TimelineCanvas_MouseMove(object sender, MouseEventArgs e)
         {
             if (e.LeftButton == MouseButtonState.Pressed && _dragInfo != null && TimelineCanvas.IsMouseCaptured)

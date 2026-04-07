@@ -16,6 +16,7 @@ namespace VideoEditorWPF.ViewModels
 {
     public class TimelineViewModel : ViewModelBase
     {
+        public event EventHandler TimelineLengthChanged;
         private const double DefaultScale = 3.0;
         private const double MinScale = 0.5;
         private const double MaxScale = 800.0;  // Increased from 200.0 for better zoom capability
@@ -453,6 +454,52 @@ namespace VideoEditorWPF.ViewModels
                             TimelineScale = dynamicMinScale;
                         }
                     }
+                }
+            }
+        }
+
+        private Clip _selectedClip;
+        public Clip SelectedClip
+        {
+            get => _selectedClip;
+            set
+            {
+                if (_selectedClip != value)
+                {
+                    _selectedClip = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(SelectedClipStart));
+                    OnPropertyChanged(nameof(SelectedClipDuration));
+                    Debug.WriteLine($"TimelineViewModel.SelectedClip = {value?.DisplayName ?? "null"}");
+                }
+            }
+        }
+
+        public double SelectedClipStart
+        {
+            get => _selectedClip?.OffsetSeconds ?? 0.0;
+            set
+            {
+                if (_selectedClip != null)
+                {
+                    _selectedClip.OffsetSeconds = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public double SelectedClipDuration
+        {
+            get => _selectedClip?.DurationSeconds ?? 0.0;
+            set
+            {
+                if (_selectedClip != null)
+                {
+                    // мин. длительность — например 0.05, чтобы не удалять клип случайно
+                    _selectedClip.DurationSeconds = Math.Max(0.05, value);
+                    OnPropertyChanged();
+                    // при изменении длительности лучше обновить canvas
+                    TimelineLengthChanged?.Invoke(this, EventArgs.Empty);
                 }
             }
         }

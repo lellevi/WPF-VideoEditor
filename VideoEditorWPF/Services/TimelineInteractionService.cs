@@ -11,6 +11,7 @@ namespace VideoEditorWPF.Services
     public interface ITimelineInteractionService
     {
         ClipDragInfo StartDrag(Point position, Canvas canvas);
+        ClipDragInfo StartDrag(Point position, Canvas canvas, TimelineViewModel timeline);
         void UpdateDrag(Point currentPosition, ClipDragInfo dragInfo, Canvas canvas, TimelineViewModel timeline, bool isShiftPressed);
         void FinishDrag(ClipDragInfo dragInfo);
         void MovePlayhead(Point position, TimelineViewModel timeline, Rectangle playhead, bool isShiftPressed);
@@ -28,12 +29,19 @@ namespace VideoEditorWPF.Services
 
         public ClipDragInfo StartDrag(Point position, Canvas canvas)
         {
+            return null;
+        }
+
+        public ClipDragInfo StartDrag(Point position, Canvas canvas, TimelineViewModel timeline)
+        {
             var hitElement = canvas.InputHitTest(position) as DependencyObject;
 
             while (hitElement != null && hitElement != canvas)
             {
                 if (hitElement is Rectangle rect && rect.Tag is Clip clip)
                 {
+                    SelectClip(clip, timeline);
+
                     var label = canvas.Children.OfType<TextBlock>()
                         .FirstOrDefault(tb => tb.Tag == clip);
 
@@ -51,22 +59,22 @@ namespace VideoEditorWPF.Services
             return null;
         }
 
+        public void SelectClip(Clip clip, TimelineViewModel timeline)
+        {
+            timeline.SelectedClip = clip;
+        }
+
         public void UpdateDrag(Point currentPosition, ClipDragInfo dragInfo, Canvas canvas, TimelineViewModel timeline, bool isShiftPressed)
         {
             if (dragInfo?.Clip == null) return;
 
-            // Get current visual X position
             double visualStartX = dragInfo.Visual != null
                 ? Canvas.GetLeft(dragInfo.Visual)
                 : dragInfo.Clip.GetOffsetPixels(timeline.TimelineScale);
 
-            // Calculate delta
             double deltaX = currentPosition.X - dragInfo.LastPosition.X;
-
-            // Apply delta
             double newStartX = Math.Max(0, visualStartX + deltaX);
 
-            // Snap to grid if Shift is pressed
             if (isShiftPressed)
             {
                 newStartX = SnapToGrid(newStartX, true, timeline.TimelineScale);
@@ -77,10 +85,8 @@ namespace VideoEditorWPF.Services
                 _snapIndicator.Hide();
             }
 
-            // Update model
             timeline.UpdateClipTimePosition(dragInfo.Clip, newStartX);
 
-            // Update visuals
             if (dragInfo.Visual != null)
             {
                 Canvas.SetLeft(dragInfo.Visual, newStartX);
@@ -97,7 +103,6 @@ namespace VideoEditorWPF.Services
         public void FinishDrag(ClipDragInfo dragInfo)
         {
             _snapIndicator.Hide();
-            // Cleanup handled by caller (RefreshTracks)
         }
 
         public void MovePlayhead(Point position, TimelineViewModel timeline, Rectangle playhead, bool isShiftPressed)
@@ -113,15 +118,10 @@ namespace VideoEditorWPF.Services
             if (!snap)
                 return position;
 
-            const double snapInterval = 0.5; // 0.5 seconds
-
-            // Convert pixels to seconds
+            const double snapInterval = 0.5;
             double timeInSeconds = position / scale;
-
-            // Round to nearest 0.5 second interval
             double snappedSeconds = Math.Round(timeInSeconds / snapInterval) * snapInterval;
 
-            // Convert back to pixels
             return snappedSeconds * scale;
         }
     }
