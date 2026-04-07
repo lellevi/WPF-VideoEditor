@@ -21,12 +21,44 @@ namespace VideoEditorWPF.Services
         {
             foreach (var clip in clips)
             {
+                double startX = clip.GetOffsetPixels(timelineScale);
+                double width = clip.GetWidth(timelineScale);
+
+                if (double.IsNaN(startX) || double.IsInfinity(startX))
+                {
+                    Debug.WriteLine($"[RenderClip] Неверный startX для {clip.DisplayName} (OffsetSeconds={clip.OffsetSeconds}, timelineScale={timelineScale})");
+                    startX = 0; // подстраховка
+                }
+
+                if (double.IsNaN(width) || double.IsInfinity(width))
+                {
+                    Debug.WriteLine($"[RenderClip] Неверный width для {clip.DisplayName}: {width}");
+                    width = 50; // подстраховка
+                }
                 RenderClip(canvas, clip, trackTop, timelineScale);
             }
         }
 
         private void RenderClip(Canvas canvas, Clip clip, double top, double timelineScale)
         {
+            Debug.WriteLine($"ClipRenderService.RenderClip: {clip.DisplayName} (OffsetSeconds={clip.OffsetSeconds}, DurationSeconds={clip.DurationSeconds}, timelineScale={timelineScale:F3})");
+
+            double startX = clip.GetOffsetPixels(timelineScale);
+            Debug.WriteLine($"ClipRenderService.RenderClip: startX = {startX:F3}");
+            double width = clip.GetWidth(timelineScale);
+
+            if (double.IsNaN(startX) || double.IsInfinity(startX))
+            {
+                Debug.WriteLine($"[RenderClip] Неверный startX (OffsetSeconds={clip.OffsetSeconds})");
+                startX = 0; // подстраховка
+            }
+
+            if (double.IsNaN(width) || double.IsInfinity(width))
+            {
+                Debug.WriteLine($"[RenderClip] Неверный width (DurationSeconds={clip.DurationSeconds})");
+                width = 50; // подстраховка
+            }
+            Debug.WriteLine($"ClipRenderService.RenderClip: startX = {startX:F3} (OffsetSeconds={clip.OffsetSeconds:F3}, timelineScale={timelineScale:F3})");
             Brush color = clip.IsVideoClip ? Brushes.DodgerBlue : Brushes.Orange;
 
             var rect = new Rectangle

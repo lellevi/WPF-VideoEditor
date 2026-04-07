@@ -75,7 +75,8 @@
                              Stretch="Uniform"/>
 
                     <!-- Image для рендеринга поверх MediaElement -->
-                    <Image x:Name="PreviewCanvas" Stretch="Uniform"/>
+                    <!--<Image x:Name="PreviewCanvas" Stretch="Uniform"/>-->
+                    <Image x:Name="PreviewCanvas" Source="{Binding Preview.PreviewBitmap, Mode=OneWay}"/>
                 </Grid>
             </Border>
 
@@ -301,13 +302,13 @@
                 <TextBlock Text="⚙️ Properties" FontWeight="Bold" FontSize="16" Margin="0,0,0,20"/>
 
                 <TextBlock x:Name="SelectedClipLabel" Text="No clip selected"
-                      FontWeight="SemiBold" Margin="0,0,0,15"/>
+              FontWeight="SemiBold" Margin="0,0,0,15"/>
 
                 <TextBlock Text="⏱️ Start:" Margin="0,0,0,5"/>
-                <Slider x:Name="ClipStartSlider" Height="25" Margin="0,0,0,15"/>
+                <Slider x:Name="ClipStartSlider" Height="25" Margin="0,0,0,15" Value="{Binding Timeline.SelectedClipStart, Mode=TwoWay}"/>
 
                 <TextBlock Text="⏳ Duration:" Margin="0,0,0,5"/>
-                <Slider x:Name="ClipDurationSlider" Height="25" Margin="0,0,0,15"/>
+                <Slider x:Name="ClipDurationSlider" Height="25" Margin="0,0,0,15" Value="{Binding Timeline.SelectedClipDuration, Mode=TwoWay}"/>
 
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
                     <CheckBox x:Name="MuteCheckBox" Content="🔇 Mute" Margin="0,0,15,0"/>
@@ -316,8 +317,8 @@
                 </StackPanel>
 
                 <Button x:Name="ExportButton" Command="{Binding ExportCommand}" Content="💾 Export Video"
-                   Height="50" Background="DodgerBlue" Foreground="White"
-                   FontWeight="Bold" FontSize="14"/>
+               Height="50" Background="DodgerBlue" Foreground="White"
+               FontWeight="Bold" FontSize="14"/>
             </StackPanel>
         </Border>
     </Grid>

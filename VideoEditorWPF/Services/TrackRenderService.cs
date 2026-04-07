@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -20,6 +22,44 @@ namespace VideoEditorWPF.Services
 
         private readonly IClipRenderService _clipRenderService;
 
+        public event EventHandler ClipPropertyChanged;
+
+        private void OnClipPropertyChanged(Clip clip, string propertyName)
+        {
+            ClipPropertyChanged?.Invoke(this, new ClipPropertyChangedEventArgs(clip, propertyName));
+        }
+
+        private void SubscribeToClips(IEnumerable<Clip> clips, string propertyName = null)
+        {
+            foreach (var clip in clips)
+            {
+                clip.PropertyChanged += (s, e) =>
+                {
+                    if (e.PropertyName == "OffsetSeconds" ||
+                        e.PropertyName == "DurationSeconds")
+                    {
+                        OnClipPropertyChanged((Clip)s, e.PropertyName);
+                    }
+                };
+            }
+        }
+
+        // ✅ Отписываемся от старых клипов
+        private void UnsubscribeFromClips(IEnumerable<Clip> clips)
+        {
+            foreach (var clip in clips)
+            {
+                clip.PropertyChanged -= (s, e) =>
+                {
+                    if (e.PropertyName == "OffsetSeconds" ||
+                        e.PropertyName == "DurationSeconds")
+                    {
+                        OnClipPropertyChanged((Clip)s, e.PropertyName);
+                    }
+                };
+            }
+        }
+
         public TrackRenderService(IClipRenderService clipRenderService)
         {
             _clipRenderService = clipRenderService;
@@ -27,6 +67,25 @@ namespace VideoEditorWPF.Services
 
         public void RenderTracks(Canvas canvas, IEnumerable<Track> tracks, double canvasWidth, double timelineScale)
         {
+            Debug.WriteLine($"TrackRenderService.RenderTracks: timelineScale = {timelineScale:F2}");
+            // Отписываемся от старых клипов
+            // ✅ Приводим UIElement к FrameworkElement, чтобы получить Tag
+            UnsubscribeFromClips(
+                from item in canvas.Children.OfType<UIElement>()
+                let f = item as FrameworkElement
+                where f != null && f.Tag is Clip clip
+                select (Clip)f.Tag
+            );
+
+//            UnsubscribeFromClips(
+//    canvas.Children
+//        .OfType<UIElement>()
+//        .Select(e => e as FrameworkElement)
+//        .Where(f => f != null && f.Tag is Clip clip)
+//        .Select(f => (Clip)f.Tag)
+//);
+
+            // Рисуем треки
             int trackIndex = 0;
             foreach (var track in tracks)
             {
@@ -35,6 +94,9 @@ namespace VideoEditorWPF.Services
                 _clipRenderService.RenderClips(canvas, track.Clips, trackY, timelineScale);
                 trackIndex++;
             }
+
+            // Подписываемся на новые клипы
+            SubscribeToClips(tracks.SelectMany(t => t.Clips));
         }
 
         public void ClearTracks(Canvas canvas)
@@ -43,7 +105,6 @@ namespace VideoEditorWPF.Services
                 .Where(e =>
                 {
                     int zIndex = Canvas.GetZIndex(e);
-                    // Don't remove snap indicators (Z-Index > 1000)
                     if (zIndex > 1000) return false;
 
                     double top = Canvas.GetTop(e);
@@ -59,7 +120,6 @@ namespace VideoEditorWPF.Services
 
         private void DrawTrackBackground(Canvas canvas, double y, double canvasWidth)
         {
-            // Draw a subtle background for the track area
             var trackBg = new Rectangle
             {
                 Width = canvasWidth,

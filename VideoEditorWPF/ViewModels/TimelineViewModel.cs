@@ -412,6 +412,8 @@ namespace VideoEditorWPF.ViewModels
 
         public void UpdateClipTimePosition(Clip clip, double newStartX)
         {
+            Debug.WriteLine($"UpdateClipTimePosition: newStartX = {newStartX:F3}, TimelineScale = {TimelineScale:F3}");
+            // Если TimelineScale = 0 → Clip.OffsetSeconds = NaN
             clip.OffsetSeconds = newStartX / TimelineScale;
         }
 
@@ -482,11 +484,28 @@ namespace VideoEditorWPF.ViewModels
             {
                 if (_selectedClip != null)
                 {
+                    Debug.WriteLine($"SelectedClipStart set: {value:F3} -> OffsetSeconds = {value:F3}");
                     _selectedClip.OffsetSeconds = value;
                     OnPropertyChanged();
                 }
             }
         }
+
+        //public double SelectedClipDuration
+        //{
+        //    get => _selectedClip?.DurationSeconds ?? 0.0;
+        //    set
+        //    {
+        //        if (_selectedClip != null)
+        //        {
+        //            // мин. длительность — например 0.05, чтобы не удалять клип случайно
+        //            _selectedClip.DurationSeconds = Math.Max(0.05, value);
+        //            OnPropertyChanged();
+        //            // при изменении длительности лучше обновить canvas
+        //            TimelineLengthChanged?.Invoke(this, EventArgs.Empty);
+        //        }
+        //    }
+        //}
 
         public double SelectedClipDuration
         {
@@ -495,13 +514,17 @@ namespace VideoEditorWPF.ViewModels
             {
                 if (_selectedClip != null)
                 {
-                    // мин. длительность — например 0.05, чтобы не удалять клип случайно
+                    Debug.WriteLine($"SelectedClipDuration set: {value:F3} -> DurationSeconds = {value:F3}");
                     _selectedClip.DurationSeconds = Math.Max(0.05, value);
                     OnPropertyChanged();
-                    // при изменении длительности лучше обновить canvas
-                    TimelineLengthChanged?.Invoke(this, EventArgs.Empty);
                 }
             }
+        }
+
+        // В TimelineViewModel
+        public double SelectedClipMaxDuration
+        {
+            get => _selectedClip?.TotalDurationSecondsFromMediaFile ?? 100;
         }
     }
 }
