@@ -105,8 +105,3 @@ namespace VideoEditorWPF.ViewModels
         }
     }
 }
-// Главный ViewModel.
-// Координирует MediaFiles, Timeline, Preview. Команды: AddMedia, ResetPlayhead, Export.
-// Загружает медиа через IMediaService + диалоги. Добавляет клипы на timeline.
-// Заглушка экспорта (FFmpeg). Асинхронные thumbnails с fallback.
-// FIXME

@@ -20,7 +20,7 @@ namespace VideoEditorWPF.Factories
                 SourceDuration = mediaFile.Duration.TotalSeconds,
                 TrimStart = 0,
                 TrimEnd = mediaFile.Duration.TotalSeconds,
-                DurationSeconds = mediaFile.Duration.TotalSeconds, // Изначально полная длительность
+                DurationSeconds = mediaFile.Duration.TotalSeconds,
                 IsVideoClip = IsVideoFile(mediaFile.FilePath),
                 TrackIndex = trackIndex,
                 ClipId = Guid.NewGuid().ToString(),
@@ -35,7 +35,3 @@ namespace VideoEditorWPF.Factories
         }
     }
 }
-// Фабрика для создания клипов видеоредактора.
-// Преобразует MediaFile в Clip с расчетом позиции (StartX) и ширины (Width) по timelineScale.
-// Автоматически определяет тип клипа (видео/аудио) по расширению файла.
-// Устанавливает начальную позицию, длительность и трек для timeline.

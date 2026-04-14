@@ -75,8 +75,6 @@ namespace VideoEditorWPF
 
         private void TrackRenderService_ClipPropertyChanged(object sender, ClipPropertyChangedEventArgs e)
         {
-            // Любое изменение OffsetSeconds / DurationSeconds → перерисовать TimelineCanvas
-            Debug.WriteLine($"Clip property changed: {e.Clip.DisplayName}, {e.PropertyName}");
             RefreshTracks();
         }
 
@@ -224,7 +222,6 @@ namespace VideoEditorWPF
             _trackRenderService.ClearTracks(TimelineCanvas);
 
             double canvasWidth = TimelineCanvas.Width;
-            Debug.WriteLine($"RefreshTracks: TimelineCanvas.Width = {canvasWidth:F1}, tracks count = {ViewModel.Timeline.Tracks.Count}");
             _trackRenderService.RenderTracks(TimelineCanvas, ViewModel.Timeline.Tracks, canvasWidth, ViewModel.Timeline.TimelineScale);
             DrawTrackSeparators();
         }

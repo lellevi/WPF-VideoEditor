@@ -292,7 +292,7 @@ namespace VideoEditorWPF.ViewModels
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Ошибка добавления клипа: {ex.Message}");
+                throw new ArgumentException($"Ошибка добавления клипа: {ex.Message}");
 
                 if (targetTrack != null)
                 {
@@ -374,8 +374,6 @@ namespace VideoEditorWPF.ViewModels
 
         public void UpdateClipTimePosition(Clip clip, double newStartX)
         {
-            Debug.WriteLine($"UpdateClipTimePosition: newStartX = {newStartX:F3}, TimelineScale = {TimelineScale:F3}");
-            // Если TimelineScale = 0 → Clip.OffsetSeconds = NaN
             clip.OffsetSeconds = newStartX / TimelineScale;
         }
 

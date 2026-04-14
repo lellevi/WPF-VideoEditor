@@ -67,24 +67,12 @@ namespace VideoEditorWPF.Services
 
         public void RenderTracks(Canvas canvas, IEnumerable<Track> tracks, double canvasWidth, double timelineScale)
         {
-            Debug.WriteLine($"TrackRenderService.RenderTracks: timelineScale = {timelineScale:F2}");
-            // Отписываемся от старых клипов
-            // ✅ Приводим UIElement к FrameworkElement, чтобы получить Tag
             UnsubscribeFromClips(
                 from item in canvas.Children.OfType<UIElement>()
                 let f = item as FrameworkElement
                 where f != null && f.Tag is Clip clip
                 select (Clip)f.Tag
             );
-
-//            UnsubscribeFromClips(
-//    canvas.Children
-//        .OfType<UIElement>()
-//        .Select(e => e as FrameworkElement)
-//        .Where(f => f != null && f.Tag is Clip clip)
-//        .Select(f => (Clip)f.Tag)
-//);
-
             // Рисуем треки
             int trackIndex = 0;
             foreach (var track in tracks)

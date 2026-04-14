@@ -165,26 +165,28 @@ namespace VideoEditorWPF.Services
             _previewFPS = Math.Max(5, Math.Min(60, fps));
         }
 
+        // VideoEditorWPF/Services/PreviewRenderService.cs
+
         public async Task UpdatePreview(WriteableBitmap bitmap, TimeSpan currentTime, IEnumerable<Track> tracks)
         {
-            if (bitmap == null)
-            {
-                return;
-            }
+            if (bitmap == null) return;
 
-            _ = Task.Run(async () =>
+            await Task.Run(async () =>
             {
                 try
                 {
+                    // ✅ Используем обновленный метод
                     var activeClipResult = FindActiveVideoClip(tracks, currentTime);
                     byte[] frameBytes = null;
 
                     if (activeClipResult.HasValue)
                     {
-                        var (clip, timeInClip) = activeClipResult.Value;
-                        frameBytes = await GetOrFetchFrame(clip.FilePath, timeInClip);
+                        var (clip, timeInFile) = activeClipResult.Value;
+                        // Передаем время в исходном файле (с учетом TrimStart)
+                        frameBytes = await GetOrFetchFrame(clip.FilePath, timeInFile);
                     }
 
+                    // Обновление UI в потоке Dispatcher
                     bitmap.Dispatcher.Invoke(() =>
                     {
                         bitmap.Lock();
@@ -210,7 +212,7 @@ namespace VideoEditorWPF.Services
                         }
                     });
                 }
-                catch (ArgumentException ex)
+                catch (Exception ex)
                 {
                     throw new ArgumentException($"UpdatePreview error: {ex.Message}");
                 }
@@ -222,23 +224,26 @@ namespace VideoEditorWPF.Services
         /// Получает кадр из кэша или декодирует новый
         /// </summary>
 
-        private async Task<byte[]> GetOrFetchFrame(string filePath, double timeInClip)
+        private async Task<byte[]> GetOrFetchFrame(string filePath, double timeInSeconds)
         {
-            var cached = GetCachedFrame(filePath, timeInClip);
+            // Округляем время для кэша (опционально)
+            double roundedTime = Math.Round(timeInSeconds, 3);
+
+            var cached = GetCachedFrame(filePath, roundedTime);
             if (cached != null)
             {
                 return cached;
             }
 
-            var decoder = _videoDecoders.TryGetValue(filePath, out var d) ? d :
-                          (_videoDecoders[filePath] = new VideoDecoder(filePath));
+            var decoder = _videoDecoders.TryGetValue(filePath, out var d)
+                ? d : (_videoDecoders[filePath] = new VideoDecoder(filePath));
 
-            var frameBytes = await decoder.GetFrameAsync(filePath, timeInClip);
+            var frameBytes = await decoder.GetFrameAsync(filePath, roundedTime);
 
             if (frameBytes != null)
             {
                 EnsureCache(filePath);
-                int cacheKey = (int)(timeInClip * 30);  // 33мс точность
+                int cacheKey = (int)(roundedTime * 30);
                 _frameCaches[filePath].Frames[cacheKey] = frameBytes;
             }
 
@@ -286,8 +291,12 @@ namespace VideoEditorWPF.Services
             return frameBytes;
         }
 
-        // Обновленный метод поиска активного клипа
-        private (Clip clip, double timeInClip)? FindActiveVideoClip(IEnumerable<Track> tracks, TimeSpan currentTime)
+        // VideoEditorWPF/Services/PreviewRenderService.cs
+
+        /// <summary>
+        /// Находит активный видео клип на текущем времени с учетом обрезки
+        /// </summary>
+        private (Clip clip, double timeInFile)? FindActiveVideoClip(IEnumerable<Track> tracks, TimeSpan currentTime)
         {
             double currentSeconds = currentTime.TotalSeconds;
 
@@ -297,15 +306,25 @@ namespace VideoEditorWPF.Services
 
                 foreach (var clip in track.Clips)
                 {
-                    if (clip.IsVideoClip &&
-                        currentSeconds >= clip.OffsetSeconds &&
+                    if (!clip.IsVideoClip) continue;
+
+                    // Проверяем, находится ли плейхед внутри клипа на таймлайне
+                    if (currentSeconds >= clip.OffsetSeconds &&
                         currentSeconds < clip.OffsetSeconds + clip.DurationSeconds)
                     {
-                        // Время внутри клипа на таймлайне
+                        // Время внутри клипа на таймлайне (от 0 до длительности клипа)
                         double timeInClip = currentSeconds - clip.OffsetSeconds;
 
-                        // Возвращаем клип и время внутри обрезанного клипа
-                        return (clip, timeInClip);
+                        // ⭐ КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: пересчитываем время в исходном файле с учетом TrimStart
+                        double timeInFile = clip.TrimStart + timeInClip;
+
+                        // Проверяем, не вышли ли за пределы обрезанной области
+                        if (timeInFile >= clip.TrimEnd)
+                        {
+                            continue; // За пределами обрезки - пропускаем этот клип
+                        }
+
+                        return (clip, timeInFile);
                     }
                 }
             }
@@ -316,14 +335,15 @@ namespace VideoEditorWPF.Services
         /// <summary>
         /// Получает кадр из кэша
         /// </summary>
-        private byte[] GetCachedFrame(string filePath, double timeInClip)
+        private byte[] GetCachedFrame(string filePath, double timeInSeconds)
         {
-            if (!_frameCaches.TryGetValue(filePath, out var cache) || !cache.Frames.Any())
+            if (!_frameCaches.TryGetValue(filePath, out var cache) || cache.Frames.Count == 0)
                 return null;
 
-            int targetKey = (int)(timeInClip * 30);
+            int targetKey = (int)(timeInSeconds * 30);
 
-            for (int delta = -1; delta <= 1; delta++)
+            // Ищем точное совпадение или ближайшее
+            for (int delta = -2; delta <= 2; delta++)
             {
                 if (cache.Frames.TryGetValue(targetKey + delta, out var frame))
                     return frame;

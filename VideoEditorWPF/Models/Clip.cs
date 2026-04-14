@@ -13,8 +13,8 @@ namespace VideoEditorWPF.Models
         private double _offsetSeconds;      // Позиция на таймлайне
         private double _durationSeconds;    // Длительность на таймлайне
 
-        private double _trimStart = 0;      // Начало обрезки внутри исходного файла (сек)
-        private double _trimEnd = 0;        // Конец обрезки внутри исходного файла (сек)
+        private double _trimStart = 0;      // Начало обрезки внутри исходного файла
+        private double _trimEnd = 0;        // Конец обрезки внутри исходного файла
 
         /// <summary>
         /// Начало обрезки внутри исходного файла (секунды от начала файла)
@@ -26,10 +26,26 @@ namespace VideoEditorWPF.Models
             {
                 if (Math.Abs(_trimStart - value) > 0.001)
                 {
-                    _trimStart = Math.Max(0, Math.Min(value, SourceDuration - MinTrimDuration));
+                    _trimStart = Math.Max(0, Math.Min(value, TrimEnd - MinTrimDuration));
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(TrimmedDuration));
-                    OnPropertyChanged(nameof(TrimEnd));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Конец обрезки внутри исходного файла (секунды от начала файла)
+        /// </summary>
+        public double TrimEnd
+        {
+            get => _trimEnd;
+            set
+            {
+                if (Math.Abs(_trimEnd - value) > 0.001)
+                {
+                    _trimEnd = Math.Max(TrimStart + MinTrimDuration, Math.Min(value, SourceDuration));
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(TrimmedDuration));
                 }
             }
         }
@@ -60,28 +76,11 @@ namespace VideoEditorWPF.Models
             }
         }
 
-        /// <summary>
-        /// Конец обрезки внутри исходного файла (секунды от начала файла)
-        /// </summary>
-        public double TrimEnd
-        {
-            get => _trimEnd;
-            set
-            {
-                if (Math.Abs(_trimEnd - value) > 0.001)
-                {
-                    _trimEnd = Math.Max(TrimStart + MinTrimDuration, Math.Min(value, SourceDuration));
-                    OnPropertyChanged();
-                    OnPropertyChanged(nameof(TrimmedDuration));
-                    OnPropertyChanged(nameof(TrimStart));
-                }
-            }
-        }
 
         /// <summary>
         /// Длительность после обрезки (на таймлайне = TrimmedDuration)
         /// </summary>
-        public double TrimmedDuration => _trimEnd - _trimStart;
+        public double TrimmedDuration => TrimEnd - TrimStart;
 
         /// <summary>
         /// Исходная длительность файла
@@ -172,14 +171,12 @@ namespace VideoEditorWPF.Models
         public double GetOffsetPixels(double timelineScale)
         {
             double result = OffsetSeconds * timelineScale;
-            Debug.WriteLine($"Clip.GetOffsetPixels: OffsetSeconds = {OffsetSeconds:F3}, timelineScale = {timelineScale:F3} = {result:F3}");
             return result;
         }
 
         public double GetWidth(double timelineScale)
         {
             double result = DurationSeconds * timelineScale;
-            Debug.WriteLine($"Clip.GetWidth: DurationSeconds = {DurationSeconds:F3}, timelineScale = {timelineScale:F3} = {result:F3}");
             return result;
         }
 
