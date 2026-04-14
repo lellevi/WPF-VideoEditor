@@ -105,6 +105,45 @@ namespace VideoEditorWPF.Services
 
             return string.Concat(fileName.AsSpan(0, prefixLength), "...", fileName.AsSpan(fileName.Length - suffixLength));
         }
+
+        // В ClipRenderService.cs
+        private void DrawTrimIndicators(Canvas canvas, Clip clip, double x, double y, double width, double height)
+        {
+            if (clip.TrimStart > 0)
+            {
+                // Затемненная область в начале клипа (обрезанная часть)
+                double trimmedStartWidth = (clip.TrimStart / clip.SourceDuration) * width;
+                var trimmedStartOverlay = new Rectangle
+                {
+                    Width = trimmedStartWidth,
+                    Height = height,
+                    Fill = new SolidColorBrush(Color.FromArgb(100, 0, 0, 0)),
+                    Stroke = new SolidColorBrush(Colors.DarkRed),
+                    StrokeThickness = 1
+                };
+                Canvas.SetLeft(trimmedStartOverlay, x);
+                Canvas.SetTop(trimmedStartOverlay, y);
+                canvas.Children.Add(trimmedStartOverlay);
+            }
+
+            if (clip.TrimEnd < clip.SourceDuration)
+            {
+                // Затемненная область в конце клипа
+                double trimmedEndWidth = ((clip.SourceDuration - clip.TrimEnd) / clip.SourceDuration) * width;
+                double trimmedEndX = x + width - trimmedEndWidth;
+                var trimmedEndOverlay = new Rectangle
+                {
+                    Width = trimmedEndWidth,
+                    Height = height,
+                    Fill = new SolidColorBrush(Color.FromArgb(100, 0, 0, 0)),
+                    Stroke = new SolidColorBrush(Colors.DarkRed),
+                    StrokeThickness = 1
+                };
+                Canvas.SetLeft(trimmedEndOverlay, trimmedEndX);
+                Canvas.SetTop(trimmedEndOverlay, y);
+                canvas.Children.Add(trimmedEndOverlay);
+            }
+        }
     }
 }
 // Сервис отрисовки клипов на Canvas timeline.

@@ -251,27 +251,6 @@ namespace VideoEditorWPF.ViewModels
             ReindexTracks();
         }
 
-        private void DeleteSelectedTrack()
-        {
-            if (SelectedTrack == null || SelectedTrack.IsDefault) return;
-
-            var tracksOfType = Tracks.Count(t => t.Type == SelectedTrack.Type);
-            if (tracksOfType <= 1) return;
-
-            var result = MessageBox.Show(
-                $"Delete track '{SelectedTrack.Name}'?",
-                "Delete Track",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Yes)
-            {
-                Tracks.Remove(SelectedTrack);
-                SelectedTrack = null;
-                ReindexTracks();
-            }
-        }
-
         private void ReindexTracks()
         {
             for (int i = 0; i < Tracks.Count; i++)
@@ -329,23 +308,6 @@ namespace VideoEditorWPF.ViewModels
                 .Where(c => c.FilePath == clip.FilePath)
                 .Count();
             clip.InstanceNumber = sameFileClips + 1;
-        }
-
-        private void AddClipAtomically(Track track, MediaFile mediaFile)
-        {
-            lock (track.Clips)
-            {
-                double startTimeSeconds = PlayheadTimeSeconds;
-                var freePosition = FindFreePosition(track, startTimeSeconds);
-                startTimeSeconds = freePosition;
-
-                int trackIndex = Tracks.IndexOf(track);
-                var clip = _clipFactory.CreateClip(mediaFile, startTimeSeconds, TimelineScale, trackIndex);
-
-                SetInstanceNumber(clip, track);
-
-                track.Clips.Add(clip);
-            }
         }
 
         private Track GetOrCreateTrackForType(MediaType type)
@@ -461,6 +423,24 @@ namespace VideoEditorWPF.ViewModels
         }
 
         private Clip _selectedClip;
+
+        public double SelectedClipMaxDuration
+        {
+            get => _selectedClip?.TotalDurationSecondsFromMediaFile ?? 100;
+        }
+
+        private ClipTrimViewModel _clipTrimViewModel;
+
+        public ClipTrimViewModel ClipTrimViewModel
+        {
+            get => _clipTrimViewModel;
+            set
+            {
+                _clipTrimViewModel = value;
+                OnPropertyChanged();
+            }
+        }
+
         public Clip SelectedClip
         {
             get => _selectedClip;
@@ -470,88 +450,91 @@ namespace VideoEditorWPF.ViewModels
                 {
                     _selectedClip = value;
                     OnPropertyChanged();
+
+                    // Обновляем ViewModel обрезки
+                    if (_selectedClip != null)
+                    {
+                        ClipTrimViewModel = new ClipTrimViewModel(_selectedClip);
+                    }
+
                     OnPropertyChanged(nameof(SelectedClipStart));
                     OnPropertyChanged(nameof(SelectedClipDuration));
-                    Debug.WriteLine($"TimelineViewModel.SelectedClip = {value?.DisplayName ?? "null"}");
                 }
             }
         }
 
-        //public double SelectedClipStart
-        //{
-        //    get => _selectedClip?.OffsetSeconds ?? 0.0;
-        //    set
-        //    {
-        //        if (_selectedClip != null)
-        //        {
-        //            Debug.WriteLine($"SelectedClipStart set: {value:F3} -> OffsetSeconds = {value:F3}");
-        //            _selectedClip.OffsetSeconds = value;
-        //            OnPropertyChanged();
-        //        }
-        //    }
-        //}
+        // Удалить старые проблемные свойства /SelectedClipDuration
+        // Заменить на:
+        public double SelectedClipStart => _selectedClip?.OffsetSeconds ?? 0;
+        public double SelectedClipDuration => _selectedClip?.DurationSeconds ?? 0;
 
-        //public double SelectedClipDuration
-        //{
-        //    get => _selectedClip?.DurationSeconds ?? 0.0;
-        //    set
-        //    {
-        //        if (_selectedClip != null)
-        //        {
-        //            // мин. длительность — например 0.05, чтобы не удалять клип случайно
-        //            _selectedClip.DurationSeconds = Math.Max(0.05, value);
-        //            OnPropertyChanged();
-        //            // при изменении длительности лучше обновить canvas
-        //            TimelineLengthChanged?.Invoke(this, EventArgs.Empty);
-        //        }
-        //    }
-        //}
+        // Добавьте это событие
+        public event Action TracksChanged;
 
-        //public double SelectedClipDuration
-        //{
-        //    get => _selectedClip?.DurationSeconds ?? 0.0;
-        //    set
-        //    {
-        //        if (_selectedClip != null)
-        //        {
-        //            Debug.WriteLine($"SelectedClipDuration set: {value:F3} -> DurationSeconds = {value:F3}");
-        //            _selectedClip.DurationSeconds = Math.Max(0.05, value);
-        //            OnPropertyChanged();
-        //        }
-        //    }
-        //}
+        // Существующий код...
 
-        // В TimelineViewModel
-        public double SelectedClipMaxDuration
+        public void MoveClip(Clip clip, double newOffsetSeconds)
         {
-            get => _selectedClip?.TotalDurationSecondsFromMediaFile ?? 100;
-        }
-
-        public double SelectedClipStart
-        {
-            get => _selectedClip?.OffsetSeconds ?? 0.0;
-            set
+            if (clip != null)
             {
-                if (_selectedClip != null)
-                {
-                    _selectedClip.OffsetSeconds = Math.Max(0.05, value);
-                    OnPropertyChanged();
-                    Application.Current.Dispatcher.Invoke(() => (Application.Current.MainWindow as MainWindow)?.RefreshTracks());
-                }
+                clip.OffsetSeconds = Math.Max(0, newOffsetSeconds);
+                OnTracksChanged(); // Вместо RefreshTracks()
             }
         }
 
-        public double SelectedClipDuration
+        public void TrimClip(Clip clip, double newTrimStart, double newTrimEnd)
         {
-            get => _selectedClip?.DurationSeconds ?? 0.0;
-            set
+            if (clip != null)
             {
-                if (_selectedClip != null)
-                {
-                    _selectedClip.DurationSeconds = Math.Max(0.05, value);
-                    OnPropertyChanged();
-                    Application.Current.Dispatcher.Invoke(() => (Application.Current.MainWindow as MainWindow)?.RefreshTracks());
-                }
+                clip.TrimStart = newTrimStart;
+                clip.TrimEnd = newTrimEnd;
+                clip.DurationSeconds = clip.TrimmedDuration;
+                OnTracksChanged(); // Вместо RefreshTracks()
+            }
+        }
+
+        protected virtual void OnTracksChanged()
+        {
+            TracksChanged?.Invoke();
+        }
+
+        // Также добавьте вызов OnTracksChanged() в другие методы, где меняются треки/клипы
+        private void AddClipAtomically(Track track, MediaFile mediaFile)
+        {
+            lock (track.Clips)
+            {
+                double startTimeSeconds = PlayheadTimeSeconds;
+                var freePosition = FindFreePosition(track, startTimeSeconds);
+                startTimeSeconds = freePosition;
+
+                int trackIndex = Tracks.IndexOf(track);
+                var clip = _clipFactory.CreateClip(mediaFile, startTimeSeconds, TimelineScale, trackIndex);
+
+                SetInstanceNumber(clip, track);
+                track.Clips.Add(clip);
+                OnTracksChanged(); // Добавить здесь
+            }
+        }
+
+        private void DeleteSelectedTrack()
+        {
+            if (SelectedTrack == null || SelectedTrack.IsDefault) return;
+
+            var tracksOfType = Tracks.Count(t => t.Type == SelectedTrack.Type);
+            if (tracksOfType <= 1) return;
+
+            var result = MessageBox.Show(
+                $"Delete track '{SelectedTrack.Name}'?",
+                "Delete Track",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                Tracks.Remove(SelectedTrack);
+                SelectedTrack = null;
+                ReindexTracks();
+                OnTracksChanged(); // Добавить здесь
             }
         }
     }

@@ -249,6 +249,44 @@ namespace VideoEditorWPF.Services
         /// <summary>
         /// Находит активный видео клип на текущем времени
         /// </summary>
+        // VideoEditorWPF/Services/PreviewRenderService.cs
+        // Метод получения кадра с учетом обрезки
+
+        private async Task<byte[]> GetOrFetchFrame(string filePath, double timeInClip, Clip clip = null)
+        {
+            double actualTimeInFile = timeInClip;
+
+            // Если клип обрезан, корректируем время в исходном файле
+            if (clip != null && clip.TrimStart > 0)
+            {
+                actualTimeInFile = clip.TrimStart + timeInClip;
+
+                // Проверяем, не вышли ли за пределы обрезки
+                if (actualTimeInFile >= clip.TrimEnd)
+                {
+                    return null; // За пределами обрезанной области
+                }
+            }
+
+            var cached = GetCachedFrame(filePath, actualTimeInFile);
+            if (cached != null) return cached;
+
+            var decoder = _videoDecoders.TryGetValue(filePath, out var d)
+                ? d : (_videoDecoders[filePath] = new VideoDecoder(filePath));
+
+            var frameBytes = await decoder.GetFrameAsync(filePath, actualTimeInFile);
+
+            if (frameBytes != null)
+            {
+                EnsureCache(filePath);
+                int cacheKey = (int)(actualTimeInFile * 30);
+                _frameCaches[filePath].Frames[cacheKey] = frameBytes;
+            }
+
+            return frameBytes;
+        }
+
+        // Обновленный метод поиска активного клипа
         private (Clip clip, double timeInClip)? FindActiveVideoClip(IEnumerable<Track> tracks, TimeSpan currentTime)
         {
             double currentSeconds = currentTime.TotalSeconds;
@@ -263,7 +301,11 @@ namespace VideoEditorWPF.Services
                         currentSeconds >= clip.OffsetSeconds &&
                         currentSeconds < clip.OffsetSeconds + clip.DurationSeconds)
                     {
-                        return (clip, currentSeconds - clip.OffsetSeconds);
+                        // Время внутри клипа на таймлайне
+                        double timeInClip = currentSeconds - clip.OffsetSeconds;
+
+                        // Возвращаем клип и время внутри обрезанного клипа
+                        return (clip, timeInClip);
                     }
                 }
             }

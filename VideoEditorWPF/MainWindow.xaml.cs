@@ -44,6 +44,8 @@ namespace VideoEditorWPF
             var clipFactory = new ClipFactory();
             var timelineVM = new TimelineViewModel(clipFactory);
 
+            timelineVM.TracksChanged += OnTimelineTracksChanged;
+
             _previewRenderService = new PreviewRenderService();
             var previewVM = new PreviewViewModel(timelineVM, _previewRenderService);
 
@@ -64,6 +66,11 @@ namespace VideoEditorWPF
 
             SetupEventHandlers();
             SetupPreviewIntegration();
+        }
+
+        private void OnTimelineTracksChanged()
+        {
+            Dispatcher.Invoke(() => RefreshTracks());
         }
 
         private void TrackRenderService_ClipPropertyChanged(object sender, ClipPropertyChangedEventArgs e)

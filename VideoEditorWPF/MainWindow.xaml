@@ -81,7 +81,6 @@
             </Border>
 
             <!-- Transport Controls -->
-            <!-- Transport Controls (замените полностью Grid.Row="1") -->
             <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="20">
                 <Button Command="{Binding Timeline.ResetPlayheadCommand}"
             Content="⏮|" Width="45" Height="35" Margin="5"
@@ -90,7 +89,6 @@
                 <Button Command="{Binding Preview.PreviousFrameCommand}"
             Content="⏮" Width="45" Height="35" Margin="5"/>
 
-                <!-- ✅ ПРАВИЛЬНАЯ структура Style с Triggers -->
                 <Button Command="{Binding Preview.PlayPauseCommand}"
             Width="45" Height="35" Margin="5">
                     <Button.Style>
@@ -297,28 +295,216 @@
         </Grid>
 
         <!-- RIGHT: Properties -->
-        <Border Grid.Column="2" BorderBrush="Gray" BorderThickness="1" Margin="5">
+        <!--<Border Grid.Column="2" BorderBrush="Gray" BorderThickness="1" Margin="5">
             <StackPanel Margin="15">
                 <TextBlock Text="⚙️ Properties" FontWeight="Bold" FontSize="16" Margin="0,0,0,20"/>
 
-                <TextBlock x:Name="SelectedClipLabel" Text="No clip selected"
-              FontWeight="SemiBold" Margin="0,0,0,15"/>
+                <TextBlock x:Name="SelectedClipLabel"
+                   Text="{Binding Timeline.SelectedClip.DisplayName, FallbackValue='No clip selected'}"
+                   FontWeight="SemiBold" Margin="0,0,0,15"/>
 
-                <TextBlock Text="⏱️ Start:" Margin="0,0,0,5"/>
-                <Slider x:Name="ClipStartSlider" Height="25" Margin="0,0,0,15" Value="{Binding Timeline.SelectedClipStart, Mode=TwoWay}"/>
+                --><!-- ====== ОБРЕЗКА НАЧАЛА (TRIM START) ====== --><!--
+                <TextBlock Text="✂️ Trim Start:" Margin="0,0,0,5"/>
+                <Grid Margin="0,0,0,15">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Slider Grid.Column="0"
+                    x:Name="TrimStartSlider"
+                    Minimum="0"
+                    Maximum="{Binding Timeline.ClipTrimViewModel.SourceDuration}"
+                    Value="{Binding Timeline.ClipTrimViewModel.TrimStart, Mode=TwoWay}"
+                    ToolTip="Trim from beginning"/>
+                    <TextBlock Grid.Column="1"
+                       Text="{Binding Timeline.ClipTrimViewModel.TrimStartFormatted}"
+                       Margin="10,0,0,0" VerticalAlignment="Center" FontFamily="Consolas"/>
+                </Grid>
 
-                <TextBlock Text="⏳ Duration:" Margin="0,0,0,5"/>
-                <Slider x:Name="ClipDurationSlider" Height="25" Margin="0,0,0,15" Value="{Binding Timeline.SelectedClipDuration, Mode=TwoWay}"/>
+                --><!-- ====== ОБРЕЗКА КОНЦА (TRIM END) ====== --><!--
+                <TextBlock Text="✂️ Trim End:" Margin="0,0,0,5"/>
+                <Grid Margin="0,0,0,15">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Slider Grid.Column="0"
+                    x:Name="TrimEndSlider"
+                    Minimum="0"
+                    Maximum="{Binding Timeline.ClipTrimViewModel.SourceDuration}"
+                    Value="{Binding Timeline.ClipTrimViewModel.TrimEnd, Mode=TwoWay}"
+                    ToolTip="Trim from end"/>
+                    <TextBlock Grid.Column="1"
+                       Text="{Binding Timeline.ClipTrimViewModel.TrimEndFormatted}"
+                       Margin="10,0,0,0" VerticalAlignment="Center" FontFamily="Consolas"/>
+                </Grid>
 
+                --><!-- ====== ИНФОРМАЦИЯ ОБ ОБРЕЗКЕ ====== --><!--
+                <Border Background="#2A2A2A" CornerRadius="4" Margin="0,0,0,15" Padding="8">
+                    <StackPanel>
+                        <TextBlock FontSize="11" Foreground="Gray">
+                    <Run Text="📊 Source duration: "/>
+                    <Run Text="{Binding Timeline.ClipTrimViewModel.SourceDuration, StringFormat={}{0:F2}s}"
+                         Foreground="White" FontWeight="Bold"/>
+                        </TextBlock>
+                        <TextBlock FontSize="11" Foreground="Gray" Margin="0,5,0,0">
+                    <Run Text="✂️ Trimmed duration: "/>
+                    <Run Text="{Binding Timeline.ClipTrimViewModel.TrimmedDurationFormatted}"
+                         Foreground="LightGreen" FontWeight="Bold"/>
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+
+                --><!-- ====== ПОЗИЦИЯ НА ТАЙМЛАЙНЕ (отдельно от обрезки!) ====== --><!--
+                <Separator Margin="0,10,0,10"/>
+                <TextBlock Text="📍 Timeline Position:" Margin="0,0,0,5" FontWeight="SemiBold"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Slider Grid.Column="0"
+                    x:Name="ClipPositionSlider"
+                    Minimum="0"
+                    Maximum="{Binding Timeline.TotalDurationSeconds}"
+                    Value="{Binding Timeline.SelectedClip.OffsetSeconds, Mode=TwoWay}"
+                    ToolTip="Move clip on timeline"/>
+                    <TextBlock Grid.Column="1"
+                       Text="{Binding Timeline.SelectedClip.OffsetSeconds, StringFormat={}{0:F2}s}"
+                       Margin="10,0,0,0" VerticalAlignment="Center" FontFamily="Consolas"/>
+                </Grid>
+
+                <Separator Margin="0,10,0,10"/>
+
+                --><!-- КНОПКИ ДЛЯ ОБРЕЗКИ --><!--
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
-                    <CheckBox x:Name="MuteCheckBox" Content="🔇 Mute" Margin="0,0,15,0"/>
+                    <Button Content="↺ Reset Trim"
+                    Command="{Binding Timeline.ClipTrimViewModel.ResetTrimCommand}"
+                    Width="100" Height="30" Margin="0,0,10,0"
+                    ToolTip="Reset trim to full clip"/>
+                    <Button Content="🎯 Fit to Playhead"
+                    Command="{Binding Timeline.ClipTrimViewModel.FitToPlayheadCommand}"
+                    Width="120" Height="30"
+                    ToolTip="Trim to current playhead position"/>
+                </StackPanel>
+
+                --><!-- ОСТАЛЬНЫЕ ЭЛЕМЕНТЫ (Mute, Volume, Export) --><!--
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                    <CheckBox x:Name="MuteCheckBox" Content="🔇 Mute" Margin="0,0,15,0"
+                      IsChecked="{Binding Timeline.SelectedTrack.IsMuted}"/>
                     <TextBlock Text="🔊 Volume:" VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <Slider x:Name="VolumeSlider" Width="120" Height="25"/>
                 </StackPanel>
 
-                <Button x:Name="ExportButton" Command="{Binding ExportCommand}" Content="💾 Export Video"
-               Height="50" Background="DodgerBlue" Foreground="White"
-               FontWeight="Bold" FontSize="14"/>
+                <Button x:Name="ExportButton" Command="{Binding ExportCommand}"
+                Content="💾 Export Video" Height="50"
+                Background="DodgerBlue" Foreground="White"
+                FontWeight="Bold" FontSize="14"/>
+            </StackPanel>
+        </Border>-->
+        <!-- RIGHT: Properties -->
+        <Border Grid.Column="2" BorderBrush="Gray" BorderThickness="1" Margin="5">
+            <StackPanel Margin="15">
+                <TextBlock Text="⚙️ Properties" FontWeight="Bold" FontSize="16" Margin="0,0,0,20"/>
+
+                <TextBlock Text="{Binding Timeline.SelectedClip.DisplayName, FallbackValue='No clip selected'}"
+                   FontWeight="SemiBold" Margin="0,0,0,15"/>
+
+                <!-- ИНФОРМАЦИЯ - ТОЛЬКО ДЛЯ ЧТЕНИЯ -->
+                <Border Background="#2A2A2A" CornerRadius="4" Margin="0,0,0,15" Padding="8">
+                    <StackPanel>
+                        <TextBlock FontSize="11" Foreground="Gray">
+                    <Run Text="📹 Source duration: "/>
+                    <!-- ✅ Mode=OneWay -->
+                    <Run Text="{Binding Timeline.ClipTrimViewModel.SourceDuration, Mode=OneWay, StringFormat={}{0:F2}s}"
+                         Foreground="White" FontWeight="Bold"/>
+                        </TextBlock>
+                        <TextBlock FontSize="11" Foreground="Gray" Margin="0,5,0,0">
+                    <Run Text="✂️ Trimmed duration: "/>
+                    <!-- ✅ Mode=OneWay -->
+                    <Run Text="{Binding Timeline.ClipTrimViewModel.TrimmedDurationFormatted, Mode=OneWay}"
+                         Foreground="LightGreen" FontWeight="Bold"/>
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+
+                <!-- TRIM START -->
+                <TextBlock Text="✂️ Trim Start:" Margin="0,0,0,5"/>
+                <Grid Margin="0,0,0,15">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <!-- ✅ Maximum использует Mode=OneWay -->
+                    <Slider Grid.Column="0"
+                    Minimum="0"
+                    Maximum="{Binding Timeline.ClipTrimViewModel.SourceDuration, Mode=OneWay}"
+                    Value="{Binding Timeline.ClipTrimViewModel.TrimStart, Mode=TwoWay}"
+                    ToolTip="Trim from beginning"/>
+                    <!-- ✅ Mode=OneWay для форматированной строки -->
+                    <TextBlock Grid.Column="1"
+                       Text="{Binding Timeline.ClipTrimViewModel.TrimStartFormatted, Mode=OneWay}"
+                       Margin="10,0,0,0" VerticalAlignment="Center" FontFamily="Consolas"/>
+                </Grid>
+
+                <!-- TRIM END -->
+                <TextBlock Text="✂️ Trim End:" Margin="0,0,0,5"/>
+                <Grid Margin="0,0,0,15">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <!-- ✅ Maximum использует Mode=OneWay -->
+                    <Slider Grid.Column="0"
+                    Minimum="0"
+                    Maximum="{Binding Timeline.ClipTrimViewModel.SourceDuration, Mode=OneWay}"
+                    Value="{Binding Timeline.ClipTrimViewModel.TrimEnd, Mode=TwoWay}"
+                    ToolTip="Trim from end"/>
+                    <!-- ✅ Mode=OneWay для форматированной строки -->
+                    <TextBlock Grid.Column="1"
+                       Text="{Binding Timeline.ClipTrimViewModel.TrimEndFormatted, Mode=OneWay}"
+                       Margin="10,0,0,0" VerticalAlignment="Center" FontFamily="Consolas"/>
+                </Grid>
+
+                <!-- TIMELINE POSITION -->
+                <Separator Margin="0,10,0,10"/>
+                <TextBlock Text="📍 Timeline Position:" Margin="0,0,0,5" FontWeight="SemiBold"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Slider Grid.Column="0"
+                    Minimum="0"
+                    Maximum="{Binding Timeline.TotalDurationSeconds, Mode=OneWay}"
+                    Value="{Binding Timeline.SelectedClip.OffsetSeconds, Mode=TwoWay}"
+                    ToolTip="Move clip on timeline"/>
+                    <TextBlock Grid.Column="1"
+                       Text="{Binding Timeline.SelectedClip.OffsetSeconds, StringFormat={}{0:F2}s, Mode=OneWay}"
+                       Margin="10,0,0,0" VerticalAlignment="Center" FontFamily="Consolas"/>
+                </Grid>
+
+                <Separator Margin="0,10,0,10"/>
+
+                <!-- КНОПКИ -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                    <Button Content="↺ Reset Trim"
+                    Command="{Binding Timeline.ClipTrimViewModel.ResetTrimCommand}"
+                    Width="100" Height="30" Margin="0,0,10,0"
+                    ToolTip="Reset trim to full clip"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                    <CheckBox Content="🔇 Mute" Margin="0,0,15,0"
+                      IsChecked="{Binding Timeline.SelectedTrack.IsMuted}"/>
+                    <TextBlock Text="🔊 Volume:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <Slider Width="120" Height="25"/>
+                </StackPanel>
+
+                <Button Command="{Binding ExportCommand}"
+                Content="💾 Export Video" Height="50"
+                Background="DodgerBlue" Foreground="White"
+                FontWeight="Bold" FontSize="14"/>
             </StackPanel>
         </Border>
     </Grid>

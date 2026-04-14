@@ -11,30 +11,20 @@ namespace VideoEditorWPF.Factories
 
     public class ClipFactory : IClipFactory
     {
-        //public Clip CreateClip(MediaFile mediaFile, double startTimeSeconds, double timelineScale, int trackIndex)
-        //{
-        //    return new Clip
-        //    {
-        //        FilePath = mediaFile.FilePath,
-        //        IsVideoClip = mediaFile.FilePath.EndsWith(".mp4") || mediaFile.FilePath.EndsWith(".avi") || mediaFile.FilePath.EndsWith(".mkv"),
-        //        OffsetSeconds = startTimeSeconds,
-        //        DurationSeconds = (float)mediaFile.Duration.TotalSeconds,  // ← Из MediaFile!
-
-        //        TrackIndex = trackIndex
-        //    };
-        //}
-        // В ClipFactory
         public Clip CreateClip(MediaFile mediaFile, double offsetSeconds, double timelineScale, int trackIndex)
         {
             return new Clip
             {
                 FilePath = mediaFile.FilePath,
                 OffsetSeconds = offsetSeconds,
-                DurationSeconds = mediaFile.Duration.TotalSeconds,
+                SourceDuration = mediaFile.Duration.TotalSeconds,
+                TrimStart = 0,
+                TrimEnd = mediaFile.Duration.TotalSeconds,
+                DurationSeconds = mediaFile.Duration.TotalSeconds, // Изначально полная длительность
                 IsVideoClip = IsVideoFile(mediaFile.FilePath),
                 TrackIndex = trackIndex,
-                ClipId = Guid.NewGuid().ToString(), // ✅ Генерируем новый ID
-                InstanceNumber = 1 // Будет перезаписан в SetInstanceNumber
+                ClipId = Guid.NewGuid().ToString(),
+                InstanceNumber = 1
             };
         }
         private bool IsVideoFile(string filePath)
