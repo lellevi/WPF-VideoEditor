@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
+using System.Windows.Documents;
 using IOPath = System.IO.Path;
 
 namespace VideoEditorWPF.Models
@@ -151,7 +152,7 @@ namespace VideoEditorWPF.Models
 
                 if (!string.IsNullOrWhiteSpace(stderr))
                 {
-                    Debug.WriteLine($"[ffprobe error] {stderr}");
+                    throw new ArgumentException($"ffprobe error: {stderr}");
                 }
 
                 var clean = output.Trim();
@@ -166,7 +167,7 @@ namespace VideoEditorWPF.Models
                         CultureInfo.InvariantCulture,
                         out double duration) &&
                     duration > 0.0 &&
-                    duration <= 86400.0) // максимум 24 ч, чтобы отфильтровать явный бред
+                    duration <= 86400.0)
                 {
                     return duration;
                 }
@@ -175,7 +176,7 @@ namespace VideoEditorWPF.Models
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[GetDurationFFmpegAsync] Error: {ex.Message}");
+                throw new ArgumentException($"GetDurationFFmpegAsync: error: {ex.Message}");
                 return 30.0;
             }
         }

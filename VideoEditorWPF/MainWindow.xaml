@@ -4,11 +4,13 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:models="clr-namespace:VideoEditorWPF.Models"
+        xmlns:converters="clr-namespace:VideoEditorWPF.Converters"
         mc:Ignorable="d"
         Title="Video Editor WPF" Height="800" Width="1400">
 
     <Window.Resources>
         <ResourceDictionary>
+            <converters:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Styles/TrackStyles.xaml"/>
                 <ResourceDictionary Source="Styles/ButtonStyles.xaml"/>
@@ -72,9 +74,7 @@
             <!-- transport controls -->
             <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="20">
                 <Button Command="{Binding Timeline.ResetPlayheadCommand}" Content="⏮|" Width="45" Height="35" Margin="5" ToolTip="Reset to Start"/>
-
                 <Button Command="{Binding Preview.PreviousFrameCommand}" Content="⏮" Width="45" Height="35" Margin="5"/>
-
                 <Button Command="{Binding Preview.PlayPauseCommand}" Width="45" Height="35" Margin="5">
                     <Button.Style>
                         <Style TargetType="Button">
@@ -166,20 +166,15 @@
                                                                 <Style TargetType="TextBlock">
                                                                     <Setter Property="Text" Value="📹 "/>
                                                                     <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding Type}" Value="Audio">
+                                                                        <!--<DataTrigger Binding="{Binding Type}" Value="Audio">
                                                                             <Setter Property="Text" Value="🔊 "/>
-                                                                        </DataTrigger>
+                                                                        </DataTrigger>-->
                                                                     </Style.Triggers>
                                                                 </Style>
                                                             </TextBlock.Style>
                                                         </TextBlock>
                                                         <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" FontSize="11"/>
                                                         <TextBlock Text=" • DEF" Foreground="LightBlue" FontSize="9" Margin="4,1,0,0" Style="{StaticResource DefaultBadgeStyle}"/>
-                                                    </StackPanel>
-
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <ToggleButton Content="🔇" Style="{StaticResource TrackToggleButtonStyle}" IsChecked="{Binding IsMuted}" Width="26" Height="22" Margin="0,0,2,0" FontSize="10" ToolTip="Mute track"/>
-                                                        <ToggleButton Content="🔒" Style="{StaticResource TrackToggleButtonStyle}" IsChecked="{Binding IsLocked}" Width="26" Height="22" Margin="2,0,0,0" FontSize="10" ToolTip="Lock track"/>
                                                     </StackPanel>
                                                 </StackPanel>
                                             </Border>
@@ -196,7 +191,6 @@
                     <!-- timeline canvas (bottom right) -->
                     <ScrollViewer Grid.Row="1" Grid.Column="1" x:Name="TimelineScrollViewer" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" VerticalAlignment="Top" Background="#FF1E1E1E" ScrollChanged="TimelineScrollViewer_ScrollChanged">
                         <Canvas x:Name="TimelineCanvas" Height="{Binding Timeline.CalculatedHeight}" VerticalAlignment="Top" Background="#FF2D2D2D" MouseLeftButtonDown="TimelineCanvas_MouseLeftButtonDown" MouseMove="TimelineCanvas_MouseMove" MouseLeftButtonUp="TimelineCanvas_MouseLeftButtonUp" MouseWheel="TimelineCanvas_MouseWheel">
-
                             <!-- playhead -->
                             <Rectangle x:Name="Playhead" Width="3" Height="{Binding Timeline.CalculatedHeight}" Fill="Red" Canvas.Left="{Binding Timeline.PlayheadPosition}" Panel.ZIndex="999"/>
                         </Canvas>
@@ -229,75 +223,74 @@
             </StackPanel>
         </Grid>
 
-        <!-- right: properties -->
+        <!-- right: properties with export button at bottom -->
         <Border Grid.Column="2" BorderBrush="Gray" BorderThickness="1" Margin="5">
-            <StackPanel Margin="15">
-                <TextBlock Text="⚙️ Properties" FontWeight="Bold" FontSize="16" Margin="0,0,0,20"/>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                <TextBlock Text="{Binding Timeline.SelectedClip.DisplayName, FallbackValue='No clip selected'}" FontWeight="SemiBold" Margin="0,0,0,15"/>
+                <!-- Properties content (scrollable) -->
+                <ScrollViewer Grid.Row="0" Grid.RowSpan="2" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="15">
+                        <TextBlock Text="⚙️ Properties" FontWeight="Bold" FontSize="16" Margin="0,0,0,20"/>
 
-                <!-- information -->
-                <Border Background="#2A2A2A" CornerRadius="4" Margin="0,0,0,15" Padding="8">
-                    <StackPanel>
-                        <TextBlock FontSize="11" Foreground="Gray">
-                    <Run Text="📹 Source duration: "/>
-                    <Run Text="{Binding Timeline.ClipTrimViewModel.SourceDuration, Mode=OneWay, StringFormat={}{0:F2}s}" Foreground="White" FontWeight="Bold"/>
-                        </TextBlock>
-                        <TextBlock FontSize="11" Foreground="Gray" Margin="0,5,0,0">
-                    <Run Text="✂️ Trimmed duration: "/>
-                    <Run Text="{Binding Timeline.ClipTrimViewModel.TrimmedDurationFormatted, Mode=OneWay}" Foreground="LightGreen" FontWeight="Bold"/>
-                        </TextBlock>
+                        <TextBlock Text="{Binding Timeline.SelectedClip.DisplayName, FallbackValue='No clip selected'}" FontWeight="SemiBold" Margin="0,0,0,15"/>
+
+                        <!-- trim start -->
+                        <TextBlock Text="✂️ Trim Start:" Margin="0,0,0,5"/>
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Grid.Column="0" Minimum="0" Maximum="{Binding Timeline.ClipTrimViewModel.SourceDuration, Mode=OneWay}" Value="{Binding Timeline.ClipTrimViewModel.TrimStart, Mode=TwoWay}" ToolTip="Trim from beginning"/>
+                            <TextBlock Grid.Column="1" Text="{Binding Timeline.ClipTrimViewModel.TrimStartFormatted, Mode=OneWay}" Margin="10,0,0,0" VerticalAlignment="Center" FontFamily="Consolas"/>
+                        </Grid>
+
+                        <!-- trim end -->
+                        <TextBlock Text="✂️ Trim End:" Margin="0,0,0,5"/>
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Grid.Column="0" Minimum="0" Maximum="{Binding Timeline.ClipTrimViewModel.SourceDuration, Mode=OneWay}" Value="{Binding Timeline.ClipTrimViewModel.TrimEnd, Mode=TwoWay}" ToolTip="Trim from end"/>
+                            <TextBlock Grid.Column="1" Text="{Binding Timeline.ClipTrimViewModel.TrimEndFormatted, Mode=OneWay}" Margin="10,0,0,0" VerticalAlignment="Center" FontFamily="Consolas"/>
+                        </Grid>
+
+                        <!-- timeline position -->
+                        <Separator Margin="0,10,0,10"/>
+                        <TextBlock Text="📍 Timeline Position:" Margin="0,0,0,5" FontWeight="SemiBold"/>
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Grid.Column="0" Minimum="0" Maximum="{Binding Timeline.TotalDurationSeconds, Mode=OneWay}" Value="{Binding Timeline.SelectedClip.OffsetSeconds, Mode=TwoWay}" ToolTip="Move clip on timeline"/>
+                            <TextBlock Grid.Column="1" Text="{Binding Timeline.SelectedClip.OffsetSeconds, StringFormat={}{0:F2}s, Mode=OneWay}" Margin="10,0,0,0" VerticalAlignment="Center" FontFamily="Consolas"/>
+                        </Grid>
+
+                        <Separator Margin="0,10,0,10"/>
+
+                        <!-- reset trim button -->
+                        <Button Content="↺ Reset Trim" Command="{Binding Timeline.ClipTrimViewModel.ResetTrimCommand}" Height="30" Margin="0,0,0,20" ToolTip="Reset trim to full clip"/>
+
+                        <!-- export progress -->
+                        <StackPanel Margin="0,0,0,20" Visibility="{Binding IsExporting, Converter={StaticResource BoolToVisibility}}">
+                            <ProgressBar Height="20" Value="{Binding ExportProgress}" Minimum="0" Maximum="100" Margin="0,0,0,5"/>
+                            <TextBlock Text="{Binding ExportStatus}" FontSize="11" Foreground="Gray" HorizontalAlignment="Center"/>
+                        </StackPanel>
                     </StackPanel>
+                </ScrollViewer>
+
+                <!-- export button at the bottom -->
+                <Border Grid.Row="2" Background="#FF2D2D2D" BorderBrush="#FF3E3E42" BorderThickness="0,1,0,0" Padding="10">
+                    <Button Command="{Binding ExportCommand}" Content="💾 Export Video" Height="45" Background="DodgerBlue" Foreground="White" FontWeight="Bold" FontSize="14" IsEnabled="{Binding IsNotExporting}" HorizontalAlignment="Stretch"/>
                 </Border>
-
-                <!-- trim start -->
-                <TextBlock Text="✂️ Trim Start:" Margin="0,0,0,5"/>
-                <Grid Margin="0,0,0,15">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <Slider Grid.Column="0" Minimum="0" Maximum="{Binding Timeline.ClipTrimViewModel.SourceDuration, Mode=OneWay}" Value="{Binding Timeline.ClipTrimViewModel.TrimStart, Mode=TwoWay}" ToolTip="Trim from beginning"/>
-                    <TextBlock Grid.Column="1" Text="{Binding Timeline.ClipTrimViewModel.TrimStartFormatted, Mode=OneWay}" Margin="10,0,0,0" VerticalAlignment="Center" FontFamily="Consolas"/>
-                </Grid>
-
-                <!-- trim end -->
-                <TextBlock Text="✂️ Trim End:" Margin="0,0,0,5"/>
-                <Grid Margin="0,0,0,15">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <Slider Grid.Column="0" Minimum="0" Maximum="{Binding Timeline.ClipTrimViewModel.SourceDuration, Mode=OneWay}" Value="{Binding Timeline.ClipTrimViewModel.TrimEnd, Mode=TwoWay}" ToolTip="Trim from end"/>
-                    <TextBlock Grid.Column="1" Text="{Binding Timeline.ClipTrimViewModel.TrimEndFormatted, Mode=OneWay}" Margin="10,0,0,0" VerticalAlignment="Center" FontFamily="Consolas"/>
-                </Grid>
-
-                <!-- timeline position -->
-                <Separator Margin="0,10,0,10"/>
-                <TextBlock Text="📍 Timeline Position:" Margin="0,0,0,5" FontWeight="SemiBold"/>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <Slider Grid.Column="0" Minimum="0" Maximum="{Binding Timeline.TotalDurationSeconds, Mode=OneWay}" Value="{Binding Timeline.SelectedClip.OffsetSeconds, Mode=TwoWay}" ToolTip="Move clip on timeline"/>
-                    <TextBlock Grid.Column="1" Text="{Binding Timeline.SelectedClip.OffsetSeconds, StringFormat={}{0:F2}s, Mode=OneWay}" Margin="10,0,0,0" VerticalAlignment="Center" FontFamily="Consolas"/>
-                </Grid>
-                <Separator Margin="0,10,0,10"/>
-
-                <!-- buttons -->
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
-                    <Button Content="↺ Reset Trim" Command="{Binding Timeline.ClipTrimViewModel.ResetTrimCommand}" Width="100" Height="30" Margin="0,0,10,0" ToolTip="Reset trim to full clip"/>
-                </StackPanel>
-
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
-                    <CheckBox Content="🔇 Mute" Margin="0,0,15,0" IsChecked="{Binding Timeline.SelectedTrack.IsMuted}"/>
-                    <TextBlock Text="🔊 Volume:" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <Slider Width="120" Height="25"/>
-                </StackPanel>
-
-                <Button Command="{Binding ExportCommand}" Content="💾 Export Video" Height="50" Background="DodgerBlue" Foreground="White" FontWeight="Bold" FontSize="14"/>
-            </StackPanel>
+            </Grid>
         </Border>
     </Grid>
 </Window>
