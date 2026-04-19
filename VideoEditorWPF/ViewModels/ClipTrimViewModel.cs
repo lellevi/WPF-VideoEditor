@@ -143,5 +143,60 @@ namespace VideoEditorWPF.ViewModels
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
+
+        public string TrimStartTimeString
+        {
+            get => FormatTime(TrimStart);
+            set
+            {
+                if (TryParseTime(value, out double newValue))
+                {
+                    TrimStart = newValue;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(TrimStartTimeString));
+                }
+            }
+        }
+
+        public string TrimEndTimeString
+        {
+            get => FormatTime(TrimEnd);
+            set
+            {
+                if (TryParseTime(value, out double newValue))
+                {
+                    TrimEnd = newValue;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(TrimEndTimeString));
+                }
+            }
+        }
+
+        private string FormatTime(double seconds)
+        {
+            var ts = TimeSpan.FromSeconds(seconds);
+            return ts.ToString(@"hh\:mm\:ss\.fff");
+        }
+
+        private bool TryParseTime(string input, out double seconds)
+        {
+            seconds = 0;
+
+            // Поддерживаем форматы: HH:MM:SS.fff, MM:SS.fff, SS.fff
+            if (TimeSpan.TryParseExact(input, new[] { @"hh\:mm\:ss\.fff", @"mm\:ss\.fff", @"ss\.fff" },
+                System.Globalization.CultureInfo.InvariantCulture, out TimeSpan ts))
+            {
+                seconds = ts.TotalSeconds;
+                return true;
+            }
+
+            if (double.TryParse(input, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out seconds))
+            {
+                return true;
+            }
+
+            return false;
+        }
     }
 }

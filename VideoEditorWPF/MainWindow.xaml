@@ -239,26 +239,46 @@
 
                         <TextBlock Text="{Binding Timeline.SelectedClip.DisplayName, FallbackValue='No clip selected'}" FontWeight="SemiBold" Margin="0,0,0,15"/>
 
-                        <!-- trim start -->
-                        <TextBlock Text="✂️ Trim Start:" Margin="0,0,0,5"/>
+                        <TextBlock Text="✂️ Начать с:" Margin="0,0,0,5"/>
                         <Grid Margin="0,0,0,15">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <Slider Grid.Column="0" Minimum="0" Maximum="{Binding Timeline.ClipTrimViewModel.SourceDuration, Mode=OneWay}" Value="{Binding Timeline.ClipTrimViewModel.TrimStart, Mode=TwoWay}" ToolTip="Trim from beginning"/>
-                            <TextBlock Grid.Column="1" Text="{Binding Timeline.ClipTrimViewModel.TrimStartFormatted, Mode=OneWay}" Margin="10,0,0,0" VerticalAlignment="Center" FontFamily="Consolas"/>
+
+                            <Slider Grid.Column="0" Minimum="0"
+                            Maximum="{Binding Timeline.ClipTrimViewModel.SourceDuration, Mode=OneWay}"
+                            Value="{Binding Timeline.ClipTrimViewModel.TrimStart, Mode=TwoWay}"
+                            ToolTip="Trim from beginning"/>
+
+                            <TextBox Grid.Column="1" Width="100" Margin="10,0,5,0"
+                             Text="{Binding Timeline.ClipTrimViewModel.TrimStartTimeString, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
+                             FontFamily="Consolas" FontSize="11"
+                             ToolTip="Format: HH:MM:SS.fff"/>
+
+                            <TextBlock Grid.Column="2" Text="/" VerticalAlignment="Center" Margin="0,0,5,0"/>
                         </Grid>
 
-                        <!-- trim end -->
-                        <TextBlock Text="✂️ Trim End:" Margin="0,0,0,5"/>
+                        <TextBlock Text="✂️ Остановиться на:" Margin="0,0,0,5"/>
                         <Grid Margin="0,0,0,15">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <Slider Grid.Column="0" Minimum="0" Maximum="{Binding Timeline.ClipTrimViewModel.SourceDuration, Mode=OneWay}" Value="{Binding Timeline.ClipTrimViewModel.TrimEnd, Mode=TwoWay}" ToolTip="Trim from end"/>
-                            <TextBlock Grid.Column="1" Text="{Binding Timeline.ClipTrimViewModel.TrimEndFormatted, Mode=OneWay}" Margin="10,0,0,0" VerticalAlignment="Center" FontFamily="Consolas"/>
+
+                            <Slider Grid.Column="0" Minimum="0"
+                            Maximum="{Binding Timeline.ClipTrimViewModel.SourceDuration, Mode=OneWay}"
+                            Value="{Binding Timeline.ClipTrimViewModel.TrimEnd, Mode=TwoWay}"
+                            ToolTip="Trim from end"/>
+
+                            <TextBox Grid.Column="1" Width="100" Margin="10,0,5,0"
+                             Text="{Binding Timeline.ClipTrimViewModel.TrimEndTimeString, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
+                             FontFamily="Consolas" FontSize="11"
+                             ToolTip="Format: HH:MM:SS.fff"/>
+
+                            <TextBlock Grid.Column="2" Text="/" VerticalAlignment="Center" Margin="0,0,5,0"/>
                         </Grid>
 
                         <!-- timeline position -->
