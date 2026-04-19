@@ -374,7 +374,13 @@ namespace VideoEditorWPF.ViewModels
 
         public void UpdateClipTimePosition(Clip clip, double newStartX)
         {
-            clip.OffsetSeconds = newStartX / TimelineScale;
+            double newOffset = newStartX / TimelineScale;
+            clip.OffsetSeconds = Math.Max(0, newOffset);
+
+            double clipEndTime = clip.OffsetSeconds + clip.DurationSeconds;
+            ExpandTimelineIfNeeded(clipEndTime);
+
+            OnTracksChanged();
         }
 
         public double CalculatedHeight => Tracks.Count * 70;
@@ -508,9 +514,12 @@ namespace VideoEditorWPF.ViewModels
                 int trackIndex = Tracks.IndexOf(track);
                 var clip = _clipFactory.CreateClip(mediaFile, startTimeSeconds, TimelineScale, trackIndex);
 
+                double clipEndTime = clip.OffsetSeconds + clip.DurationSeconds;
+                ExpandTimelineIfNeeded(clipEndTime);
+
                 SetInstanceNumber(clip, track);
                 track.Clips.Add(clip);
-                OnTracksChanged(); // Добавить здесь
+                OnTracksChanged();
             }
         }
 
@@ -533,6 +542,30 @@ namespace VideoEditorWPF.ViewModels
                 SelectedTrack = null;
                 ReindexTracks();
                 OnTracksChanged(); // Добавить здесь
+            }
+        }
+
+        private void ExpandTimelineIfNeeded(double requiredEndTime)
+        {
+            double padding = 10.0; // запас 10 секунд
+            double newLength = Math.Max(_timelineLength, requiredEndTime + padding);
+
+            if (newLength > _timelineLength + 0.1)
+            {
+                TimelineLength = newLength;
+
+                // Пересчитываем минимальный масштаб, если нужно
+                if (_viewportWidth > 0)
+                {
+                    double dynamicMinScale = _viewportWidth / _timelineLength;
+                    if (_timelineScale < dynamicMinScale)
+                    {
+                        TimelineScale = dynamicMinScale;
+                    }
+                }
+
+                TimelineLengthChanged?.Invoke(this, EventArgs.Empty);
+                OnPropertyChanged(nameof(TotalDurationSeconds));
             }
         }
     }
