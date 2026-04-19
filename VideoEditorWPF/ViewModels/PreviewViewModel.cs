@@ -171,40 +171,6 @@ namespace VideoEditorWPF.ViewModels
 
         private bool _isUpdatingFromTimer = false;
 
-        private void OnRenderTick(object sender, EventArgs e)
-        {
-            if (_isUpdatingFromTimer || !_isPlaying || TotalDuration == TimeSpan.Zero)
-            {
-                if (TotalDuration == TimeSpan.Zero)
-                    throw new ArgumentException($"⚠️ OnRenderTick заблокирован: TotalDuration = 0!");
-                return;
-            }
-
-            _isUpdatingFromTimer = true;
-            try
-            {
-                var frameDuration = 1.0 / PreviewFPS;
-                var newTime = _currentTime + TimeSpan.FromSeconds(frameDuration);
-
-                if (newTime >= TotalDuration)
-                {
-                    IsPlaying = false;
-                    CurrentTime = TotalDuration;
-                }
-                else
-                {
-                    _currentTime = newTime;
-                    OnPropertyChanged(nameof(CurrentTime));
-                    OnPropertyChanged(nameof(CurrentTimeSeconds));
-                    RequestFrame(_currentTime);
-                }
-            }
-            finally
-            {
-                _isUpdatingFromTimer = false;
-            }
-        }
-
         //public void UpdateTotalDuration()
         //{
         //    TotalDuration = _timeline.GetTotalDuration();
@@ -296,6 +262,42 @@ namespace VideoEditorWPF.ViewModels
             TotalDuration = _timeline.GetTotalDuration();
         }
 
+        public event Action<double> PlayheadPositionChanged;
+
+        private void OnRenderTick(object sender, EventArgs e)
+        {
+            if (_isUpdatingFromTimer || !_isPlaying || TotalDuration == TimeSpan.Zero)
+                return;
+
+            _isUpdatingFromTimer = true;
+
+            try
+            {
+                var frameDuration = 1.0 / PreviewFPS;
+                var newTime = _currentTime + TimeSpan.FromSeconds(frameDuration);
+
+                if (newTime >= TotalDuration)
+                {
+                    IsPlaying = false;
+                    CurrentTime = TotalDuration;
+                }
+                else
+                {
+                    _currentTime = newTime;
+                    OnPropertyChanged(nameof(CurrentTime));
+                    OnPropertyChanged(nameof(CurrentTimeSeconds));
+
+                    // ✅ Уведомляем о смене позиции для синхронизации плейхеда
+                    PlayheadPositionChanged?.Invoke(_currentTime.TotalSeconds);
+
+                    RequestFrame(_currentTime);
+                }
+            }
+            finally
+            {
+                _isUpdatingFromTimer = false;
+            }
+        }
     }
 }
 // ViewModel предпросмотра с кастомным рендерингом (не MediaElement).

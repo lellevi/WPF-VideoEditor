@@ -81,7 +81,22 @@ namespace VideoEditorWPF
         private void SetupPreviewIntegration()
         {
             ViewModel.Preview.PreviewFrameNeeded += OnPreviewFrameNeeded;
+            ViewModel.Preview.PlayheadPositionChanged += OnPlayheadPositionChanged;
             _previewRenderService.SetPreviewFPS(ViewModel.Preview.PreviewFPS);
+        }
+
+        private void OnPlayheadPositionChanged(double seconds)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                double pixelPosition = seconds * ViewModel.Timeline.TimelineScale;
+                ViewModel.Timeline.PlayheadPosition = pixelPosition;
+
+                if (TimelineSlider != null)
+                {
+                    TimelineSlider.Value = seconds;
+                }
+            });
         }
 
         private async void OnPreviewFrameNeeded(TimeSpan time)
