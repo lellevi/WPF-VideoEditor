@@ -30,9 +30,6 @@ namespace VideoEditorWPF.ViewModels
 
         private double _timelineLength = 30.0;
         private double _viewportWidth = 0; // Will be set when window loads
-
-        private DateTime _lastClipAddTime = DateTime.MinValue;
-        private readonly TimeSpan _debounceInterval = TimeSpan.FromMilliseconds(300);
         public ObservableCollection<Track> Tracks { get; }
 
         public Track SelectedTrack
@@ -65,6 +62,193 @@ namespace VideoEditorWPF.ViewModels
                     _isPlaying = value;
                     OnPropertyChanged();
                 }
+            }
+        }
+
+        // В TimelineViewModel.cs - добавьте эти поля и свойства в начало класса
+
+        private DateTime _lastClipAddTime = DateTime.MinValue;
+        private readonly TimeSpan _debounceInterval = TimeSpan.FromMilliseconds(300);
+
+        // Добавьте событие
+        public event Action TracksChanged;
+
+        // Добавьте свойство ActiveTrack
+        private Track _activeTrack;
+
+        public Track ActiveTrack
+        {
+            get => _activeTrack;
+            set
+            {
+                if (_activeTrack != value)
+                {
+                    // Снимаем выделение с предыдущей активной дорожки
+                    if (_activeTrack != null)
+                        _activeTrack.IsSelected = false;
+
+                    _activeTrack = value;
+
+                    // Выделяем новую активную дорожку
+                    if (_activeTrack != null)
+                        _activeTrack.IsSelected = true;
+
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(ActiveTrackName));
+                }
+            }
+        }
+
+        public string ActiveTrackName => ActiveTrack?.Name ?? "None";
+
+        // Добавьте свойства для длительности
+        public double TotalDurationSeconds => GetTotalDuration().TotalSeconds;
+        public string TotalDurationString => GetTotalDuration().ToString(@"hh\:mm\:ss");
+
+        // Добавьте метод GetOrCreateTrackForType
+        private Track GetOrCreateTrackForType(MediaType type)
+        {
+            // ПРИОРИТЕТ 1: Активная дорожка (выбранная по ПКМ)
+            if (ActiveTrack != null && ActiveTrack.Type == type)
+            {
+                return ActiveTrack;
+            }
+
+            // ПРИОРИТЕТ 2: Выбранная дорожка (левым кликом)
+            if (SelectedTrack != null && SelectedTrack.Type == type)
+            {
+                return SelectedTrack;
+            }
+
+            // ПРИОРИТЕТ 3: Первая существующая дорожка нужного типа
+            var existingTrack = Tracks.FirstOrDefault(t => t.Type == type);
+            if (existingTrack != null)
+            {
+                return existingTrack;
+            }
+
+            // ПРИОРИТЕТ 4: Создаём новую дорожку
+            return CreateNewTrack(type);
+        }
+
+        // Добавьте метод CreateNewTrack
+        private Track CreateNewTrack(MediaType type)
+        {
+            int count = Tracks.Count(t => t.Type == type) + 1;
+            return new Track
+            {
+                Name = type == MediaType.Video ? $"Video {count}" : $"Audio {count}",
+                Type = type,
+                IsDefault = false
+            };
+        }
+
+        // Добавьте метод AddClipAtomically
+        private void AddClipAtomically(Track track, MediaFile mediaFile)
+        {
+            lock (track.Clips)
+            {
+                double startTimeSeconds = PlayheadTimeSeconds;
+                var freePosition = FindFreePosition(track, startTimeSeconds);
+                startTimeSeconds = freePosition;
+
+                int trackIndex = Tracks.IndexOf(track);
+                var clip = _clipFactory.CreateClip(mediaFile, startTimeSeconds, TimelineScale, trackIndex);
+
+                SetInstanceNumber(clip, track);
+                track.Clips.Add(clip);
+
+                // Расширяем таймлайн если нужно
+                double clipEndTime = clip.OffsetSeconds + clip.DurationSeconds;
+                ExpandTimelineIfNeeded(clipEndTime);
+
+                OnTracksChanged();
+            }
+        }
+
+        // Добавьте метод FindFreePosition
+        private double FindFreePosition(Track track, double preferredStart)
+        {
+            double currentPos = preferredStart;
+            while (true)
+            {
+                var overlapping = track.Clips.FirstOrDefault(c =>
+                    currentPos >= c.OffsetSeconds &&
+                    currentPos < c.OffsetSeconds + c.DurationSeconds);
+
+                if (overlapping == null)
+                    return currentPos;
+
+                currentPos = overlapping.OffsetSeconds + overlapping.DurationSeconds;
+            }
+        }
+
+        // Добавьте метод SetInstanceNumber
+        private void SetInstanceNumber(Clip clip, Track track)
+        {
+            var sameFileClips = track.Clips
+                .Where(c => c.FilePath == clip.FilePath)
+                .Count();
+            clip.InstanceNumber = sameFileClips + 1;
+        }
+
+        // Добавьте метод ExpandTimelineIfNeeded
+        private void ExpandTimelineIfNeeded(double requiredEndTime)
+        {
+            double padding = 10.0;
+            double newLength = Math.Max(_timelineLength, requiredEndTime + padding);
+
+            if (newLength > _timelineLength + 0.1)
+            {
+                TimelineLength = newLength;
+
+                if (_viewportWidth > 0)
+                {
+                    double dynamicMinScale = _viewportWidth / _timelineLength;
+                    if (_timelineScale < dynamicMinScale)
+                    {
+                        TimelineScale = dynamicMinScale;
+                    }
+                }
+
+                TimelineLengthChanged?.Invoke(this, EventArgs.Empty);
+                OnPropertyChanged(nameof(TotalDurationSeconds));
+            }
+        }
+
+        // Добавьте метод OnTracksChanged
+        protected virtual void OnTracksChanged()
+        {
+            TracksChanged?.Invoke();
+        }
+
+        // Обновите существующий метод AddClipToTrack
+        public async void AddClipToTrack(MediaFile mediaFile)
+        {
+            if (DateTime.Now - _lastClipAddTime < _debounceInterval)
+                return;
+
+            _lastClipAddTime = DateTime.Now;
+
+            try
+            {
+                double durationSeconds = await MediaFile.GetDurationFFmpegAsync(mediaFile.FilePath);
+                if (durationSeconds <= 0)
+                    durationSeconds = 30.0;
+
+                mediaFile.Duration = TimeSpan.FromSeconds(durationSeconds);
+                bool isVideo = !mediaFile.FilePath.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) &&
+                              !mediaFile.FilePath.EndsWith(".wav", StringComparison.OrdinalIgnoreCase);
+
+                Track targetTrack = GetOrCreateTrackForType(isVideo ? MediaType.Video : MediaType.Audio);
+                AddClipAtomically(targetTrack, mediaFile);
+
+                OnPropertyChanged(nameof(TotalDurationSeconds));
+                OnPropertyChanged(nameof(TotalDurationString));
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error adding clip: {ex.Message}");
             }
         }
 
@@ -141,8 +325,6 @@ namespace VideoEditorWPF.ViewModels
         }
 
         public string CurrentTimeString => TimeSpan.FromSeconds(PlayheadSeconds).ToString(@"hh\:mm\:ss");
-        public double TotalDurationSeconds => GetTotalDuration().TotalSeconds;
-        public string TotalDurationString => GetTotalDuration().ToString(@"hh\:mm\:ss");
 
         /// <summary>
         /// Вычисляет общую длительность всех клипов на таймлайне
@@ -260,98 +442,6 @@ namespace VideoEditorWPF.ViewModels
             OnPropertyChanged(nameof(CalculatedHeight));
         }
 
-        public async void AddClipToTrack(MediaFile mediaFile)
-        {
-            if (DateTime.Now - _lastClipAddTime < _debounceInterval)
-            {
-                return;
-            }
-
-            _lastClipAddTime = DateTime.Now;
-
-            Track targetTrack = null;
-            try
-            {
-                double durationSeconds = await MediaFile.GetDurationFFmpegAsync(mediaFile.FilePath);
-                if (durationSeconds <= 0)
-                {
-                    durationSeconds = 30.0;
-                }
-
-                mediaFile.Duration = TimeSpan.FromSeconds(durationSeconds);
-
-                bool isVideo = !mediaFile.FilePath.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) &&
-                              !mediaFile.FilePath.EndsWith(".wav", StringComparison.OrdinalIgnoreCase);
-
-                targetTrack = GetOrCreateTrackForType(isVideo ? MediaType.Video : MediaType.Audio);
-
-                AddClipAtomically(targetTrack, mediaFile);
-
-                OnPropertyChanged(nameof(TotalDurationSeconds));
-                OnPropertyChanged(nameof(TotalDurationString));
-            }
-            catch (Exception ex)
-            {
-                throw new ArgumentException($"Ошибка добавления клипа: {ex.Message}");
-
-                if (targetTrack != null)
-                {
-                    mediaFile.Duration = TimeSpan.FromSeconds(30.0);
-                    AddClipAtomically(targetTrack, mediaFile);
-                }
-            }
-        }
-
-        private void SetInstanceNumber(Clip clip, Track track)
-        {
-            var sameFileClips = track.Clips
-                .Where(c => c.FilePath == clip.FilePath)
-                .Count();
-            clip.InstanceNumber = sameFileClips + 1;
-        }
-
-        private Track GetOrCreateTrackForType(MediaType type)
-        {
-            Track track = SelectedTrack?.Type == type ? SelectedTrack :
-                          Tracks.FirstOrDefault(t => t.Type == type);
-
-            if (track == null)
-            {
-                track = CreateNewTrack(type);
-                Tracks.Insert(type == MediaType.Video ? 0 : Tracks.Count, track);
-                ReindexTracks();
-            }
-
-            return track;
-        }
-
-        private double FindFreePosition(Track track, double preferredStart)
-        {
-            double currentPos = preferredStart;
-
-            while (true)
-            {
-                var overlapping = track.Clips.FirstOrDefault(c =>
-                    currentPos >= c.OffsetSeconds &&
-                    currentPos < c.OffsetSeconds + c.DurationSeconds);
-
-                if (overlapping == null)
-                    return currentPos;
-
-                currentPos = overlapping.OffsetSeconds + overlapping.DurationSeconds;
-            }
-        }
-
-        private Track CreateNewTrack(MediaType type)
-        {
-            int count = Tracks.Count(t => t.Type == type) + 1;
-            return new Track
-            {
-                Name = type == MediaType.Video ? $"Video {count}" : $"Audio {count}",
-                Type = type,
-                IsDefault = false
-            };
-        }
 
         private void AddClipToTrack(Track track, MediaFile mediaFile)
         {
@@ -472,10 +562,6 @@ namespace VideoEditorWPF.ViewModels
         public double SelectedClipStart => _selectedClip?.OffsetSeconds ?? 0;
         public double SelectedClipDuration => _selectedClip?.DurationSeconds ?? 0;
 
-        // Добавьте это событие
-        public event Action TracksChanged;
-
-        // Существующий код...
 
         public void MoveClip(Clip clip, double newOffsetSeconds)
         {
@@ -497,31 +583,6 @@ namespace VideoEditorWPF.ViewModels
             }
         }
 
-        protected virtual void OnTracksChanged()
-        {
-            TracksChanged?.Invoke();
-        }
-
-        // Также добавьте вызов OnTracksChanged() в другие методы, где меняются треки/клипы
-        private void AddClipAtomically(Track track, MediaFile mediaFile)
-        {
-            lock (track.Clips)
-            {
-                double startTimeSeconds = PlayheadTimeSeconds;
-                var freePosition = FindFreePosition(track, startTimeSeconds);
-                startTimeSeconds = freePosition;
-
-                int trackIndex = Tracks.IndexOf(track);
-                var clip = _clipFactory.CreateClip(mediaFile, startTimeSeconds, TimelineScale, trackIndex);
-
-                double clipEndTime = clip.OffsetSeconds + clip.DurationSeconds;
-                ExpandTimelineIfNeeded(clipEndTime);
-
-                SetInstanceNumber(clip, track);
-                track.Clips.Add(clip);
-                OnTracksChanged();
-            }
-        }
 
         private void DeleteSelectedTrack()
         {
@@ -545,29 +606,6 @@ namespace VideoEditorWPF.ViewModels
             }
         }
 
-        private void ExpandTimelineIfNeeded(double requiredEndTime)
-        {
-            double padding = 10.0; // запас 10 секунд
-            double newLength = Math.Max(_timelineLength, requiredEndTime + padding);
-
-            if (newLength > _timelineLength + 0.1)
-            {
-                TimelineLength = newLength;
-
-                // Пересчитываем минимальный масштаб, если нужно
-                if (_viewportWidth > 0)
-                {
-                    double dynamicMinScale = _viewportWidth / _timelineLength;
-                    if (_timelineScale < dynamicMinScale)
-                    {
-                        TimelineScale = dynamicMinScale;
-                    }
-                }
-
-                TimelineLengthChanged?.Invoke(this, EventArgs.Empty);
-                OnPropertyChanged(nameof(TotalDurationSeconds));
-            }
-        }
     }
 }
 // ViewModel timeline с треками Video/Audio (по умолчанию 1+1).

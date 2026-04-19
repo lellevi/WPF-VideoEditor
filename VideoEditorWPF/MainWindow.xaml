@@ -166,21 +166,25 @@
                                                                 <Style TargetType="TextBlock">
                                                                     <Setter Property="Text" Value="📹 "/>
                                                                     <Style.Triggers>
-                                                                        <!--<DataTrigger Binding="{Binding Type}" Value="Audio">
-                                                                            <Setter Property="Text" Value="🔊 "/>
-                                                                        </DataTrigger>-->
+                                                                        <DataTrigger Binding="{Binding Type}" Value="Audio">
+                                                                            <Setter Property="Text" Value="🎵 "/>
+                                                                        </DataTrigger>
                                                                     </Style.Triggers>
                                                                 </Style>
                                                             </TextBlock.Style>
                                                         </TextBlock>
                                                         <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" FontSize="11"/>
-                                                        <TextBlock Text=" • DEF" Foreground="LightBlue" FontSize="9" Margin="4,1,0,0" Style="{StaticResource DefaultBadgeStyle}"/>
+                                                        <TextBlock Text=" • ACTIVE" Foreground="Gold" FontSize="9" Margin="4,1,0,0"
+                                                                   Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibility}}"/>
                                                     </StackPanel>
                                                 </StackPanel>
                                             </Border>
 
                                             <Rectangle Height="1" VerticalAlignment="Bottom" Fill="#FF3E3E42"/>
-                                            <Border Background="Transparent" Cursor="Hand" MouseLeftButtonDown="TrackHeader_MouseLeftButtonDown" Tag="{Binding}"/>
+                                            <Border Background="Transparent" Cursor="Hand"
+                                                    MouseLeftButtonDown="TrackHeader_MouseLeftButtonDown"
+                                                    MouseRightButtonDown="TrackHeader_MouseRightButtonDown"
+                                                    Tag="{Binding}"/>
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -207,18 +211,8 @@
                 <TextBlock x:Name="ZoomLabel" Text="{Binding Timeline.TimelineScale, StringFormat={}{0:F1}x}" Margin="15,0" VerticalAlignment="Center"/>
 
                 <TextBlock VerticalAlignment="Center" Margin="30,0,0,0" Foreground="Gray">
-                    <Run Text="Selected: "/>
-                    <Run Text="{Binding Timeline.SelectedTrack.Name, Mode=OneWay}" FontWeight="Bold" Foreground="White"/>
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding Timeline.SelectedTrack}" Value="{x:Null}">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
+                    <Run Text="Active track: "/>
+                    <Run Text="{Binding Timeline.ActiveTrackName, Mode=OneWay}" FontWeight="Bold" Foreground="Gold"/>
                 </TextBlock>
             </StackPanel>
         </Grid>

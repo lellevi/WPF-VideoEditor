@@ -68,6 +68,40 @@ namespace VideoEditorWPF
             SetupPreviewIntegration();
         }
 
+        // В MainWindow.xaml.cs - добавьте метод RefreshTracks с форсированным обновлением
+
+        public void RefreshTracks()
+        {
+            Dispatcher.Invoke(() =>
+            {
+                try
+                {
+                    // Очищаем и перерисовываем все треки
+                    double canvasWidth = TimelineCanvas.Width;
+                    if (canvasWidth <= 0)
+                        canvasWidth = 1000;
+
+                    _trackRenderService.ClearTracks(TimelineCanvas);
+                    _trackRenderService.RenderTracks(TimelineCanvas, ViewModel.Timeline.Tracks, canvasWidth, ViewModel.Timeline.TimelineScale);
+                    DrawTrackSeparators();
+
+                    // Обновляем высоту Canvas
+                    TimelineCanvas.Height = ViewModel.Timeline.CalculatedHeight;
+
+                    // Обновляем плейхед
+                    if (Playhead != null)
+                    {
+                        Playhead.Height = ViewModel.Timeline.CalculatedHeight;
+                        Canvas.SetLeft(Playhead, ViewModel.Timeline.PlayheadPosition);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"RefreshTracks error: {ex.Message}");
+                }
+            });
+        }
+
         private void OnTimelineTracksChanged()
         {
             Dispatcher.Invoke(() => RefreshTracks());
@@ -232,15 +266,6 @@ namespace VideoEditorWPF
             RefreshTracks();
         }
 
-        public void RefreshTracks()
-        {
-            _trackRenderService.ClearTracks(TimelineCanvas);
-
-            double canvasWidth = TimelineCanvas.Width;
-            _trackRenderService.RenderTracks(TimelineCanvas, ViewModel.Timeline.Tracks, canvasWidth, ViewModel.Timeline.TimelineScale);
-            DrawTrackSeparators();
-        }
-
         private void DrawTrackSeparators()
         {
             var oldLines = TimelineCanvas.Children.OfType<Line>()
@@ -337,24 +362,6 @@ namespace VideoEditorWPF
             }
         }
 
-
-        //private void TimelineCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        //{
-        //    var position = e.GetPosition(TimelineCanvas);
-        //    bool isShiftPressed = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
-
-        //    _dragInfo = _interactionService.StartDrag(position, TimelineCanvas);
-
-        //    if (_dragInfo != null)
-        //    {
-        //        TimelineCanvas.CaptureMouse();
-        //    }
-        //    else
-        //    {
-        //        // Move playhead
-        //        _interactionService.MovePlayhead(position, ViewModel.Timeline, Playhead, isShiftPressed);
-        //    }
-        //}
         private void TimelineCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             var position = e.GetPosition(TimelineCanvas);
@@ -449,6 +456,20 @@ namespace VideoEditorWPF
             ViewModel.Timeline.PlayheadPosition = playheadPosition;
 
             e.Handled = true;
+        }
+
+        private void TrackHeader_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is Border border && border.Tag is Track track)
+            {
+                // Устанавливаем активную дорожку (по ПКМ)
+                ViewModel.Timeline.ActiveTrack = track;
+
+                // Опционально: показываем уведомление в статус-баре
+                Debug.WriteLine($"Active track set to: {track.Name}");
+
+                e.Handled = true;
+            }
         }
     }
 }

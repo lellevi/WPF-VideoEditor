@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using VideoEditorWPF.Commands;
 using VideoEditorWPF.Services;
@@ -24,6 +25,7 @@ namespace VideoEditorWPF.ViewModels
         private readonly IPreviewRenderService _previewRenderService;
 
         public event Action<TimeSpan> PreviewFrameNeeded;
+        public event Action<double> PlayheadPositionChanged;
 
         public ICommand PlayPauseCommand { get; }
         public ICommand NextFrameCommand { get; }
@@ -262,8 +264,6 @@ namespace VideoEditorWPF.ViewModels
             TotalDuration = _timeline.GetTotalDuration();
         }
 
-        public event Action<double> PlayheadPositionChanged;
-
         private void OnRenderTick(object sender, EventArgs e)
         {
             if (_isUpdatingFromTimer || !_isPlaying || TotalDuration == TimeSpan.Zero)
@@ -287,7 +287,7 @@ namespace VideoEditorWPF.ViewModels
                     OnPropertyChanged(nameof(CurrentTime));
                     OnPropertyChanged(nameof(CurrentTimeSeconds));
 
-                    // ✅ Уведомляем о смене позиции для синхронизации плейхеда
+                    // Вызываем событие для синхронизации плейхеда
                     PlayheadPositionChanged?.Invoke(_currentTime.TotalSeconds);
 
                     RequestFrame(_currentTime);
@@ -296,6 +296,20 @@ namespace VideoEditorWPF.ViewModels
             finally
             {
                 _isUpdatingFromTimer = false;
+            }
+        }
+
+        // В PreviewViewModel.cs - добавьте свойство для привязки
+
+        private WriteableBitmap _previewBitmap;
+
+        public WriteableBitmap PreviewBitmap
+        {
+            get => _previewBitmap;
+            set
+            {
+                _previewBitmap = value;
+                OnPropertyChanged();
             }
         }
     }
