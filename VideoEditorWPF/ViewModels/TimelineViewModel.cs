@@ -360,6 +360,8 @@ namespace VideoEditorWPF.ViewModels
         public ICommand ZoomInCommand { get; }
         public ICommand ZoomOutCommand { get; }
 
+        public ICommand DeleteSelectedClipCommand { get; }
+
         public event EventHandler TimelineScaleChanged;
 
         public TimelineViewModel(IClipFactory clipFactory)
@@ -370,12 +372,15 @@ namespace VideoEditorWPF.ViewModels
             InitializeDefaultTracks();
 
             AddVideoTrackCommand = new RelayCommand(_ => AddTrack(MediaType.Video));
-            //AddAudioTrackCommand = new RelayCommand(_ => AddTrack(MediaType.Audio));
+
             DeleteSelectedTrackCommand = new RelayCommand(_ => DeleteSelectedTrack(),
                 _ => SelectedTrack != null && !SelectedTrack.IsDefault && CanDeleteTrack());
             ResetPlayheadCommand = new RelayCommand(_ => ResetPlayhead());
             ZoomInCommand = new RelayCommand(_ => ZoomIn());
             ZoomOutCommand = new RelayCommand(_ => ZoomOut());
+
+            DeleteSelectedClipCommand = new RelayCommand(_ => DeleteSelectedClip(),
+        _ => SelectedClip != null);
 
             Tracks.CollectionChanged += (s, e) => {
                 CommandManager.InvalidateRequerySuggested();
@@ -383,6 +388,26 @@ namespace VideoEditorWPF.ViewModels
                 OnPropertyChanged(nameof(TotalDurationSeconds));
                 OnPropertyChanged(nameof(TotalDurationString));
             };
+        }
+
+        private void DeleteSelectedClip()
+        {
+            if (SelectedClip == null) return;
+
+            // Находим трек, содержащий этот клип
+            var parentTrack = Tracks.FirstOrDefault(t => t.Clips.Contains(SelectedClip));
+            if (parentTrack != null)
+            {
+                parentTrack.Clips.Remove(SelectedClip);
+                SelectedClip = null;
+
+                // Обновляем таймлайн
+                OnTracksChanged();
+                OnPropertyChanged(nameof(TotalDurationSeconds));
+                OnPropertyChanged(nameof(TotalDurationString));
+
+                Debug.WriteLine($"Clip deleted successfully");
+            }
         }
 
         private bool CanDeleteTrack()
