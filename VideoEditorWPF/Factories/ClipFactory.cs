@@ -1,14 +1,10 @@
 ﻿using System;
 using System.Linq;
+using VideoEditorWPF.Interfaces;
 using VideoEditorWPF.Models;
 
 namespace VideoEditorWPF.Factories
 {
-    public interface IClipFactory
-    {
-        Clip CreateClip(MediaFile mediaFile, double startTimeSeconds, double timelineScale, int trackIndex);
-    }
-
     public class ClipFactory : IClipFactory
     {
         public Clip CreateClip(MediaFile mediaFile, double offsetSeconds, double timelineScale, int trackIndex)

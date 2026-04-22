@@ -10,26 +10,22 @@ namespace VideoEditorWPF.ViewModels
     public class ClipTrimViewModel : INotifyPropertyChanged
     {
         private Clip _clip;
-        private double _sourceDurationField;
 
+        private double _sourceDurationField;
         public ICommand ResetTrimCommand { get; }
         public ICommand FitToPlayheadCommand { get; }
 
         public ClipTrimViewModel(Clip clip)
         {
             _clip = clip;
-
             ResetTrimCommand = new RelayCommand(_ => ResetTrim());
             FitToPlayheadCommand = new RelayCommand(_ => FitToPlayhead());
-
             UpdateSourceDuration();
         }
-
         private void UpdateSourceDuration()
         {
             SourceDuration = _clip?.SourceDuration ?? 0;
         }
-
         public Clip TargetClip
         {
             get => _clip;
@@ -45,7 +41,6 @@ namespace VideoEditorWPF.ViewModels
                 OnPropertyChanged(nameof(TrimEndPercent));
             }
         }
-
         public double SourceDuration
         {
             get => _sourceDurationField;
@@ -58,7 +53,6 @@ namespace VideoEditorWPF.ViewModels
                 }
             }
         }
-
         public double TrimStart
         {
             get => _clip?.TrimStart ?? 0;
@@ -75,7 +69,6 @@ namespace VideoEditorWPF.ViewModels
                 }
             }
         }
-
         public double TrimEnd
         {
             get => _clip?.TrimEnd ?? 0;
@@ -92,13 +85,11 @@ namespace VideoEditorWPF.ViewModels
                 }
             }
         }
-
         public double TrimStartPercent
         {
             get => (_clip?.TrimStart ?? 0) / (SourceDuration > 0 ? SourceDuration : 1) * 100;
             set => TrimStart = (value / 100) * SourceDuration;
         }
-
         public double TrimEndPercent
         {
             get => (_clip?.TrimEnd ?? 0) / (SourceDuration > 0 ? SourceDuration : 1) * 100;
@@ -127,23 +118,15 @@ namespace VideoEditorWPF.ViewModels
                 OnPropertyChanged(nameof(TrimEndPercent));
             }
         }
-
         private void FitToPlayhead()
         {
-            if (_clip != null)
-            {
-                // TODO: требует доступа к TimelineViewModel для получения позиции плейхеда
-                // можно реализовать через событие или передачу контекста
-            }
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
-
         protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
-
         public string TrimStartTimeString
         {
             get => FormatTime(TrimStart);
@@ -157,7 +140,6 @@ namespace VideoEditorWPF.ViewModels
                 }
             }
         }
-
         public string TrimEndTimeString
         {
             get => FormatTime(TrimEnd);
@@ -182,7 +164,6 @@ namespace VideoEditorWPF.ViewModels
         {
             seconds = 0;
 
-            // Поддерживаем форматы: HH:MM:SS.fff, MM:SS.fff, SS.fff
             if (TimeSpan.TryParseExact(input, new[] { @"hh\:mm\:ss\.fff", @"mm\:ss\.fff", @"ss\.fff" },
                 System.Globalization.CultureInfo.InvariantCulture, out TimeSpan ts))
             {

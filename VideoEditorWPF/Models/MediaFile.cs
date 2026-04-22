@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
-using System.Windows.Documents;
 using IOPath = System.IO.Path;
 
 namespace VideoEditorWPF.Models
@@ -15,7 +14,6 @@ namespace VideoEditorWPF.Models
         public string ThumbnailPath { get; set; }
         public TimeSpan Duration { get; set; }
         public string DurationString => Duration.ToString(@"hh\:mm\:ss");
-
         public MediaFile() { }
 
         public MediaFile(string filePath)
@@ -24,7 +22,6 @@ namespace VideoEditorWPF.Models
             Duration = GetRealDuration(filePath);
             ThumbnailPath = null;
         }
-
         public static TimeSpan GetRealDuration(string filePath)
         {
             try
@@ -49,9 +46,7 @@ namespace VideoEditorWPF.Models
             }
 
             var ext = IOPath.GetExtension(filePath).ToLower();
-            return ext.Contains("mp3") || ext.Contains("wav")
-                ? TimeSpan.FromSeconds(180)
-                : TimeSpan.FromSeconds(120);
+            return ext.Contains("mp3") || ext.Contains("wav") ? TimeSpan.FromSeconds(180) : TimeSpan.FromSeconds(120);
         }
 
         private static (bool success, TimeSpan duration) RunFfprobeSync(string ffprobePath, string filePath)
@@ -68,7 +63,6 @@ namespace VideoEditorWPF.Models
 
             using var process = Process.Start(psi);
             if (process == null) return (false, TimeSpan.Zero);
-
             string output = process.StandardOutput.ReadToEnd();
             string error = process.StandardError.ReadToEnd();
             process.WaitForExit();
@@ -95,15 +89,11 @@ namespace VideoEditorWPF.Models
 
             using var process = Process.Start(psi);
             if (process == null) return (false, TimeSpan.Zero);
-
             string output = process.StandardOutput.ReadToEnd();
             string error = process.StandardError.ReadToEnd();
             process.WaitForExit();
-
-
             string result = output.Trim();
             if (string.IsNullOrEmpty(result)) result = error.Trim();
-
             if (double.TryParse(result, CultureInfo.InvariantCulture, out double durationSeconds) && durationSeconds > 0)
             {
                 return (true, TimeSpan.FromSeconds(durationSeconds));
@@ -147,7 +137,6 @@ namespace VideoEditorWPF.Models
 
                 var output = await process.StandardOutput.ReadToEndAsync();
                 var stderr = await process.StandardError.ReadToEndAsync();
-
                 process.WaitForExit();
 
                 if (!string.IsNullOrWhiteSpace(stderr))
@@ -161,13 +150,7 @@ namespace VideoEditorWPF.Models
                     return 30.0;
                 }
 
-                if (double.TryParse(
-                        clean,
-                        NumberStyles.Float,
-                        CultureInfo.InvariantCulture,
-                        out double duration) &&
-                    duration > 0.0 &&
-                    duration <= 86400.0)
+                if (double.TryParse(clean, NumberStyles.Float, CultureInfo.InvariantCulture, out double duration) && duration > 0.0 && duration <= 86400.0)
                 {
                     return duration;
                 }
@@ -183,6 +166,3 @@ namespace VideoEditorWPF.Models
 
     }
 }
-// Хранит путь, имя, длительность, превью. Автоматически получает реальную длительность через ffprobe/ffmpeg.
-// Fallback: 3мин для аудио, 2мин для видео при ошибке анализа.
-// Запускает внешние процессы синхронно для точного определения duration через CLI утилиты FFmpeg.

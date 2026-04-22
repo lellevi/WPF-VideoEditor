@@ -1,10 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Shapes;
 
 namespace VideoEditorWPF.Models
 {
@@ -15,10 +11,19 @@ namespace VideoEditorWPF.Models
 
         private double _trimStart = 0;      // Начало обрезки внутри исходного файла
         private double _trimEnd = 0;        // Конец обрезки внутри исходного файла
+        public string FilePath { get; set; }
+        public bool IsVideoClip { get; set; }
+        public int TrackIndex { get; set; }
+        public string ClipId { get; set; } = System.Guid.NewGuid().ToString();
+        public int InstanceNumber { get; set; } = 1;
+        public double TrimmedDuration => TrimEnd - TrimStart;
+        public double SourceDuration { get; set; }
+        public double MinTrimDuration => 0.1;
 
-        /// <summary>
-        /// Начало обрезки внутри исходного файла (секунды от начала файла)
-        /// </summary>
+        private double _start = 0;  // секунда начала внутри видео
+        private double _duration = 0;  // длительность внутри видео
+        public string DisplayName => System.IO.Path.GetFileNameWithoutExtension(FilePath) + (InstanceNumber > 1 ? $"_{InstanceNumber}" : "");
+
         public double TrimStart
         {
             get => _trimStart;
@@ -32,10 +37,6 @@ namespace VideoEditorWPF.Models
                 }
             }
         }
-
-        /// <summary>
-        /// Конец обрезки внутри исходного файла (секунды от начала файла)
-        /// </summary>
         public double TrimEnd
         {
             get => _trimEnd;
@@ -76,43 +77,16 @@ namespace VideoEditorWPF.Models
             }
         }
 
-
-        /// <summary>
-        /// Длительность после обрезки (на таймлайне = TrimmedDuration)
-        /// </summary>
-        public double TrimmedDuration => TrimEnd - TrimStart;
-
-        /// <summary>
-        /// Исходная длительность файла
-        /// </summary>
-        public double SourceDuration { get; set; }
-
-        /// <summary>
-        /// Минимальная длительность обрезки (0.1 сек)
-        /// </summary>
-        public double MinTrimDuration => 0.1;
-
-        /// <summary>
-        /// Обновляет длительность клипа на таймлайне в соответствии с обрезкой
-        /// </summary>
         public void ApplyTrim()
         {
             DurationSeconds = TrimmedDuration;
         }
-
-        /// <summary>
-        /// Сброс обрезки до полного файла
-        /// </summary>
         public void ResetTrim()
         {
             TrimStart = 0;
             TrimEnd = SourceDuration;
             DurationSeconds = SourceDuration;
         }
-
-        /// <summary>
-        /// Получить параметры для FFmpeg (trim filter)
-        /// </summary>
         public string GetFFmpegTrimFilter()
         {
             if (TrimStart <= 0 && TrimEnd >= SourceDuration)
@@ -120,7 +94,6 @@ namespace VideoEditorWPF.Models
 
             return $"trim=start={TrimStart}:end={TrimEnd},setpts=PTS-STARTPTS";
         }
-
         public double TotalDurationSecondsFromMediaFile
         {
             get
@@ -130,9 +103,6 @@ namespace VideoEditorWPF.Models
                     : 30.0;
             }
         }
-
-        private double _start = 0;  // секунда начала внутри видео
-        private double _duration = 0;  // длительность внутри видео
 
         public double Start
         {
@@ -160,14 +130,6 @@ namespace VideoEditorWPF.Models
             }
         }
 
-        public string FilePath { get; set; }
-        public bool IsVideoClip { get; set; }
-        public int TrackIndex { get; set; }
-
-        public string ClipId { get; set; } = System.Guid.NewGuid().ToString();
-        public int InstanceNumber { get; set; } = 1;
-
-
         public double GetOffsetPixels(double timelineScale)
         {
             double result = OffsetSeconds * timelineScale;
@@ -180,22 +142,11 @@ namespace VideoEditorWPF.Models
             return result;
         }
 
-        public string DisplayName =>
-            System.IO.Path.GetFileNameWithoutExtension(FilePath) +
-            (InstanceNumber > 1 ? $"_{InstanceNumber}" : "");
-
         public event PropertyChangedEventHandler PropertyChanged;
 
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
-    }
-    public class ClipDragInfo
-    {
-        public Clip Clip { get; set; }
-        public Rectangle Visual { get; set; }
-        public TextBlock Label { get; set; }
-        public Point LastPosition { get; set; }
     }
 }

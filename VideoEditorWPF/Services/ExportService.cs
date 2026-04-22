@@ -1,5 +1,4 @@
-﻿// VideoEditorWPF/Services/ExportService.cs
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -7,17 +6,12 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using VideoEditorWPF.Interfaces;
 using VideoEditorWPF.Models;
 using VideoEditorWPF.ViewModels;
 
 namespace VideoEditorWPF.Services
 {
-    public interface IExportService
-    {
-        Task<bool> ExportVideoAsync(TimelineViewModel timeline, string outputPath, IProgress<double> progress);
-        bool CanExport(TimelineViewModel timeline);
-    }
-
     public class ExportService : IExportService
     {
         private readonly IDialogService _dialogService;
@@ -51,11 +45,7 @@ namespace VideoEditorWPF.Services
                     return false;
                 }
 
-                // Получаем все клипы, отсортированные по времени
-                var allClips = timeline.Tracks
-                    .SelectMany(t => t.Clips)
-                    .OrderBy(c => c.OffsetSeconds)
-                    .ToList();
+                var allClips = timeline.Tracks.SelectMany(t => t.Clips).OrderBy(c => c.OffsetSeconds).ToList();
 
                 if (!allClips.Any())
                 {
@@ -63,29 +53,22 @@ namespace VideoEditorWPF.Services
                     return false;
                 }
 
-                // Создаем временную папку
                 string tempDir = Path.Combine(Path.GetTempPath(), $"VideoExport_{Guid.NewGuid():N}");
                 Directory.CreateDirectory(tempDir);
 
                 try
                 {
                     progress?.Report(10);
-
-                    // Шаг 1: Обрезаем и подготавливаем каждый клип
                     var preparedFiles = new List<string>();
                     double currentPosition = 0;
 
                     for (int i = 0; i < allClips.Count; i++)
                     {
                         var clip = allClips[i];
-
-                        // Проверяем есть ли промежуток перед этим клипом
                         if (clip.OffsetSeconds > currentPosition + 0.01)
                         {
                             double gapDuration = clip.OffsetSeconds - currentPosition;
                             string silenceFile = Path.Combine(tempDir, $"silence_{i}.mp4");
-
-                            // Создаем черный экран с тишиной для промежутка
                             bool silenceCreated = await CreateSilenceVideoAsync(ffmpegPath, gapDuration, silenceFile);
                             if (silenceCreated)
                             {
@@ -93,7 +76,6 @@ namespace VideoEditorWPF.Services
                             }
                         }
 
-                        // Обрезаем клип
                         string trimmedFile = Path.Combine(tempDir, $"clip_{i:000}.mp4");
                         bool success = await TrimClipAsync(ffmpegPath, clip, trimmedFile);
                         if (!success)
@@ -104,11 +86,9 @@ namespace VideoEditorWPF.Services
 
                         preparedFiles.Add(trimmedFile);
                         currentPosition = clip.OffsetSeconds + clip.DurationSeconds;
-
                         progress?.Report(10 + (i + 1) * 60.0 / allClips.Count);
                     }
 
-                    // Шаг 2: Склеиваем все подготовленные файлы
                     if (!preparedFiles.Any())
                     {
                         _dialogService?.ShowMessage("No files to concatenate", "Export Error");
@@ -116,13 +96,9 @@ namespace VideoEditorWPF.Services
                     }
 
                     progress?.Report(75);
-
-                    // Используем concat demuxer с правильным форматом
                     bool concatSuccess = await ConcatFilesAsync(ffmpegPath, preparedFiles, outputPath);
-
                     if (!concatSuccess)
                     {
-                        // Если concat не работает, пробуем альтернативный метод
                         concatSuccess = await ConcatWithFFmpegAsync(ffmpegPath, preparedFiles, outputPath);
                     }
 
@@ -133,12 +109,10 @@ namespace VideoEditorWPF.Services
                     }
 
                     progress?.Report(100);
-
                     return File.Exists(outputPath) && new FileInfo(outputPath).Length > 0;
                 }
                 finally
                 {
-                    // Очищаем временные файлы
                     if (Directory.Exists(tempDir))
                     {
                         try { Directory.Delete(tempDir, true); } catch { }
@@ -156,10 +130,7 @@ namespace VideoEditorWPF.Services
         private async Task<bool> CreateSilenceVideoAsync(string ffmpegPath, double duration, string outputPath)
         {
             if (duration <= 0) return false;
-
-            // Определяем размер из первого клипа или используем стандартный
             string size = "1024x576";
-
             string args = $"-f lavfi -i color=c=black:s={size}:d={duration.ToString("F6", InvariantCulture)} " +
                          $"-f lavfi -i anullsrc=r=44100:cl=stereo:d={duration.ToString("F6", InvariantCulture)} " +
                          $"-c:v libx264 -preset ultrafast -crf 30 " +
@@ -170,12 +141,10 @@ namespace VideoEditorWPF.Services
 
             return await RunFFmpegAsync(ffmpegPath, args);
         }
-
         private async Task<bool> TrimClipAsync(string ffmpegPath, Clip clip, string outputPath)
         {
             double duration = clip.TrimmedDuration;
             double start = clip.TrimStart;
-
             string args = $"-i \"{clip.FilePath}\" " +
                          $"-ss {start.ToString("F6", InvariantCulture)} " +
                          $"-t {duration.ToString("F6", InvariantCulture)} " +
@@ -187,36 +156,27 @@ namespace VideoEditorWPF.Services
 
             return await RunFFmpegAsync(ffmpegPath, args);
         }
-
         private async Task<bool> ConcatFilesAsync(string ffmpegPath, List<string> files, string outputPath)
         {
-            // Метод 1: Используем concat demuxer с файлом списка
             string tempDir = Path.GetDirectoryName(files[0]);
             string concatFile = Path.Combine(tempDir, "concat_list.txt");
 
-            // Нормализуем пути для FFmpeg (используем обратные слеши или экранируем)
             using (var writer = new StreamWriter(concatFile, false, Encoding.UTF8))
             {
                 foreach (var file in files)
                 {
-                    // Используем абсолютные пути с правильными слешами
                     string normalizedPath = Path.GetFullPath(file).Replace("\\", "/");
                     writer.WriteLine($"file '{normalizedPath}'");
                 }
             }
 
-            // Проверяем содержимое файла
             string content = File.ReadAllText(concatFile);
-            Debug.WriteLine($"Concat file content:\n{content}");
-
             string args = $"-f concat -safe 0 -i \"{concatFile}\" -c copy -y \"{outputPath}\"";
-
             return await RunFFmpegAsync(ffmpegPath, args);
         }
 
         private async Task<bool> ConcatWithFFmpegAsync(string ffmpegPath, List<string> files, string outputPath)
         {
-            // Метод 2: Используем filter_complex concat
             var inputs = new StringBuilder();
             var filterInputs = new StringBuilder();
 
@@ -232,16 +192,12 @@ namespace VideoEditorWPF.Services
                          $"-c:v libx264 -preset fast -crf 23 " +
                          $"-c:a aac -b:a 128k " +
                          $"-y \"{outputPath}\"";
-
             return await RunFFmpegAsync(ffmpegPath, args);
         }
-
         private async Task<bool> RunFFmpegAsync(string ffmpegPath, string arguments)
         {
             try
             {
-                Debug.WriteLine($"Running FFmpeg: {arguments}");
-
                 var psi = new ProcessStartInfo
                 {
                     FileName = ffmpegPath,
@@ -255,7 +211,6 @@ namespace VideoEditorWPF.Services
                 };
 
                 using var process = new Process { StartInfo = psi };
-
                 var outputBuilder = new StringBuilder();
                 var errorBuilder = new StringBuilder();
 
@@ -280,13 +235,10 @@ namespace VideoEditorWPF.Services
                 process.Start();
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
-
                 await process.WaitForExitAsync();
 
                 if (process.ExitCode != 0)
                 {
-                    Debug.WriteLine($"FFmpeg exit code: {process.ExitCode}");
-                    Debug.WriteLine($"FFmpeg error: {errorBuilder}");
                     return false;
                 }
 

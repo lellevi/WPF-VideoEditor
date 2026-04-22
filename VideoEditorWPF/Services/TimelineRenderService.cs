@@ -4,26 +4,19 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using VideoEditorWPF.Interfaces;
 
 namespace VideoEditorWPF.Services
 {
-    public interface ITimelineRenderService
-    {
-        void RenderTimeline(Canvas canvas, double scale, double viewportWidth, double timelineLength);
-        void ClearTimeline(Canvas canvas);
-    }
-
     public class TimelineRenderService : ITimelineRenderService
     {
         public const double TrackHeaderHeight = 25;
-
         public void RenderTimeline(Canvas canvas, double scale, double viewportWidth, double timelineLength)
         {
             if (canvas.ActualWidth <= 0) return;
 
             DrawTimelineRuler(canvas, scale, viewportWidth, timelineLength);
         }
-
         public void ClearTimeline(Canvas canvas)
         {
             var toRemove = canvas.Children.OfType<UIElement>()
@@ -31,22 +24,17 @@ namespace VideoEditorWPF.Services
                 {
                     double top = Canvas.GetTop(e);
                     return !double.IsNaN(top) && top < TrackHeaderHeight;
-                })
-                .ToList();
+                }).ToList();
 
             foreach (var elem in toRemove)
             {
                 canvas.Children.Remove(elem);
             }
         }
-
         private void DrawTimelineRuler(Canvas canvas, double pixelsPerSecond, double viewportWidth, double timelineLength)
         {
-            // Use the timeline length instead of viewport-based calculation
             double totalSeconds = timelineLength;
-
             var intervals = GetRulerIntervals(pixelsPerSecond);
-
             DrawMajorTicks(canvas, pixelsPerSecond, totalSeconds, intervals.majorInterval);
             DrawMinorTicks(canvas, pixelsPerSecond, totalSeconds, intervals.majorInterval, intervals.minorInterval);
         }
@@ -59,16 +47,10 @@ namespace VideoEditorWPF.Services
 
                 var majorLine = new Line
                 {
-                    X1 = x,
-                    Y1 = 0,
-                    X2 = x,
-                    Y2 = 20,
-                    Stroke = Brushes.WhiteSmoke,
-                    StrokeThickness = 2
+                    X1 = x, Y1 = 0, X2 = x, Y2 = 20, Stroke = Brushes.WhiteSmoke, StrokeThickness = 2
                 };
                 Canvas.SetTop(majorLine, 0);
                 canvas.Children.Add(majorLine);
-
                 var label = new TextBlock
                 {
                     Text = FormatTimeText(sec),
@@ -81,7 +63,6 @@ namespace VideoEditorWPF.Services
                 canvas.Children.Add(label);
             }
         }
-
         private void DrawMinorTicks(Canvas canvas, double pixelsPerSecond, double totalSeconds, double majorInterval, double minorInterval)
         {
             if (minorInterval <= 0 || minorInterval >= majorInterval) return;
@@ -89,23 +70,15 @@ namespace VideoEditorWPF.Services
             for (double sec = 0; sec <= totalSeconds; sec += minorInterval)
             {
                 if (Math.Abs(sec % majorInterval) < 0.001) continue;
-
                 double x = sec * pixelsPerSecond;
-
                 var minorLine = new Line
                 {
-                    X1 = x,
-                    Y1 = 0,
-                    X2 = x,
-                    Y2 = 12,
-                    Stroke = Brushes.LightGray,
-                    StrokeThickness = 1
+                    X1 = x, Y1 = 0, X2 = x, Y2 = 12, Stroke = Brushes.LightGray, StrokeThickness = 1
                 };
                 Canvas.SetTop(minorLine, 0);
                 canvas.Children.Add(minorLine);
             }
         }
-
         private (double majorInterval, double minorInterval) GetRulerIntervals(double pixelsPerSecond)
         {
             return pixelsPerSecond switch
@@ -121,7 +94,6 @@ namespace VideoEditorWPF.Services
                 _ => (0.5, 0.1)
             };
         }
-
         private string FormatTimeText(double seconds)
         {
             return seconds switch
@@ -134,7 +106,3 @@ namespace VideoEditorWPF.Services
         }
     }
 }
-// Сервис отрисовки линейки timeline (Canvas).
-// Адаптивные тики: major(секунды) + minor по pixelsPerSecond.
-// Форматирование времени (h:mm:ss / mm:ss / ss.ff).
-// TrackHeaderHeight=25px. Очищает только верхнюю область (<25px).
