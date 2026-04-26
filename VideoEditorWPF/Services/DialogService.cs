@@ -1,14 +1,8 @@
 ﻿using System.Windows;
+using VideoEditorWPF.Interfaces;
 
 namespace VideoEditorWPF.Services
 {
-    public interface IDialogService
-    {
-        string[] ShowOpenFileDialog(string filter, bool multiselect = false);
-        string ShowSaveFileDialog(string filter, string defaultFileName);
-        void ShowMessage(string message, string title);
-    }
-
     public class DialogService : IDialogService
     {
         public string[] ShowOpenFileDialog(string filter, bool multiselect = false)
@@ -39,7 +33,3 @@ namespace VideoEditorWPF.Services
         }
     }
 }
-// Сервис диалоговых окон для WPF (MVVM-friendly).
-// Обертки: OpenFileDialog (multi), SaveFileDialog, MessageBox.
-// Возвращает пути файлов или null при отмене.
-// Использует Win32 API диалоги Microsoft.Win32.*.

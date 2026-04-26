@@ -3,15 +3,10 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using VideoEditorWPF.Interfaces;
 
 namespace VideoEditorWPF.Services
 {
-    public interface ISnapIndicatorService
-    {
-        void Show(Canvas canvas, double position, double scale, double height);
-        void Hide();
-    }
-
     public class SnapIndicatorService : ISnapIndicatorService
     {
         private Line _line;
@@ -27,13 +22,11 @@ namespace VideoEditorWPF.Services
             }
 
             double timeInSeconds = position / scale;
-
-            // Create or update the snap line
             if (_line == null)
             {
                 _line = new Line
                 {
-                    Stroke = new SolidColorBrush(Color.FromRgb(255, 215, 0)), // Gold
+                    Stroke = new SolidColorBrush(Color.FromRgb(255, 215, 0)),
                     StrokeThickness = 2,
                     StrokeDashArray = new DoubleCollection { 4, 2 }
                 };
@@ -46,8 +39,6 @@ namespace VideoEditorWPF.Services
             _line.Y1 = 0;
             _line.Y2 = height;
             _line.Visibility = Visibility.Visible;
-
-            // Create or update the snap label
             if (_border == null)
             {
                 _label = new TextBlock
@@ -60,25 +51,19 @@ namespace VideoEditorWPF.Services
 
                 _border = new Border
                 {
-                    Background = new SolidColorBrush(Color.FromRgb(255, 215, 0)), // Gold
+                    Background = new SolidColorBrush(Color.FromRgb(255, 215, 0)),
                     CornerRadius = new CornerRadius(3),
                     Child = _label,
-                    BorderBrush = new SolidColorBrush(Color.FromRgb(218, 165, 32)), // GoldenRod
+                    BorderBrush = new SolidColorBrush(Color.FromRgb(218, 165, 32)),
                     BorderThickness = new Thickness(1)
                 };
                 Canvas.SetZIndex(_border, 1002);
                 canvas.Children.Add(_border);
             }
 
-            // Format time as mm:ss.f
             var timeSpan = TimeSpan.FromSeconds(timeInSeconds);
-            string timeText = timeInSeconds >= 60
-                ? $"{timeSpan:mm\\:ss\\.f}"
-                : $"{timeSpan:ss\\.f}s";
-
+            string timeText = timeInSeconds >= 60 ? $"{timeSpan:mm\\:ss\\.f}" : $"{timeSpan:ss\\.f}s";
             _label.Text = timeText;
-
-            // Position label above the line
             Canvas.SetLeft(_border, position + 5);
             Canvas.SetTop(_border, 5);
             _border.Visibility = Visibility.Visible;

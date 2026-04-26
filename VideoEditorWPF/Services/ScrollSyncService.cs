@@ -1,13 +1,8 @@
 using System.Windows.Controls;
+using VideoEditorWPF.Interfaces;
 
 namespace VideoEditorWPF.Services
 {
-    public interface IScrollSyncService
-    {
-        void SyncVerticalScroll(double offset, params ScrollViewer[] viewers);
-        void SyncHorizontalScroll(double offset, params ScrollViewer[] viewers);
-    }
-
     public class ScrollSyncService : IScrollSyncService
     {
         public void SyncVerticalScroll(double offset, params ScrollViewer[] viewers)
@@ -20,7 +15,6 @@ namespace VideoEditorWPF.Services
                 }
             }
         }
-
         public void SyncHorizontalScroll(double offset, params ScrollViewer[] viewers)
         {
             foreach (var viewer in viewers)

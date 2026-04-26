@@ -1,24 +1,20 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using VideoEditorWPF.Interfaces;
 using VideoEditorWPF.Models;
 
 namespace VideoEditorWPF.Services
 {
-    public interface ITrackRenderService
-    {
-        void RenderTracks(Canvas canvas, IEnumerable<Track> tracks, double canvasWidth, double timelineScale);
-        void ClearTracks(Canvas canvas);
-    }
-
     public class TrackRenderService : ITrackRenderService
     {
-        private const double TrackHeight = 70; // Match MainWindow.xaml track height
-
+        private const double TrackHeight = 70;
         private readonly IClipRenderService _clipRenderService;
+        public event EventHandler<ClipPropertyChangedEventArgs> ClipPropertyChanged;
 
         public TrackRenderService(IClipRenderService clipRenderService)
         {
@@ -27,6 +23,7 @@ namespace VideoEditorWPF.Services
 
         public void RenderTracks(Canvas canvas, IEnumerable<Track> tracks, double canvasWidth, double timelineScale)
         {
+            ClearTracks(canvas);
             int trackIndex = 0;
             foreach (var track in tracks)
             {
@@ -37,19 +34,18 @@ namespace VideoEditorWPF.Services
             }
         }
 
+        public void ForceRefresh(Canvas canvas, IEnumerable<Track> tracks, double canvasWidth, double timelineScale)
+        {
+            RenderTracks(canvas, tracks, canvasWidth, timelineScale);
+        }
         public void ClearTracks(Canvas canvas)
         {
             var toRemove = canvas.Children.OfType<UIElement>()
                 .Where(e =>
                 {
                     int zIndex = Canvas.GetZIndex(e);
-                    // Don't remove snap indicators (Z-Index > 1000)
-                    if (zIndex > 1000) return false;
-
-                    double top = Canvas.GetTop(e);
-                    return !double.IsNaN(top) && top >= 0;
-                })
-                .ToList();
+                    return zIndex < 1000;
+                }).ToList();
 
             foreach (var elem in toRemove)
             {
@@ -59,7 +55,6 @@ namespace VideoEditorWPF.Services
 
         private void DrawTrackBackground(Canvas canvas, double y, double canvasWidth)
         {
-            // Draw a subtle background for the track area
             var trackBg = new Rectangle
             {
                 Width = canvasWidth,
@@ -74,7 +69,3 @@ namespace VideoEditorWPF.Services
         }
     }
 }
-// Сервис отрисовки треков timeline (Canvas).
-// Рендерит заголовки треков (видео=темно-синий, аудио=темно-зеленый) + клипы.
-// TrackHeight=50px, TrackHeaderHeight=25px, TrackGap=5px.
-// Иконки: 🎬 видео, 🎵 аудио. Очищает область треков (>=25px).

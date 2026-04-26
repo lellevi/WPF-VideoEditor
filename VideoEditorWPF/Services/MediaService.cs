@@ -7,17 +7,12 @@ using System.Threading.Tasks;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using VideoEditorWPF.Interfaces;
 using VideoEditorWPF.Models;
 using IOPath = System.IO.Path;
 
 namespace VideoEditorWPF.Services
 {
-    public interface IMediaService
-    {
-        Task<MediaFile> LoadMediaFileAsync(string filePath);
-        Task<List<MediaFile>> LoadMultipleMediaFilesAsync(string[] filePaths);
-    }
-
     public class MediaService : IMediaService
     {
         public async Task<MediaFile> LoadMediaFileAsync(string filePath)
@@ -71,15 +66,11 @@ namespace VideoEditorWPF.Services
 
             using var process = Process.Start(psi);
             if (process == null) return (false, TimeSpan.Zero);
-
             var outputTask = process.StandardOutput.ReadToEndAsync();
             var errorTask = process.StandardError.ReadToEndAsync();
-
             await Task.WhenAll(outputTask, errorTask, process.WaitForExitAsync());
-
             string output = await outputTask;
             string error = await errorTask;
-
             if (double.TryParse(output.Trim(), System.Globalization.CultureInfo.InvariantCulture, out double durationSeconds) && durationSeconds > 0)
             {
                 return (true, TimeSpan.FromSeconds(durationSeconds));
@@ -102,15 +93,11 @@ namespace VideoEditorWPF.Services
 
             using var process = Process.Start(psi);
             if (process == null) return (false, TimeSpan.Zero);
-
             var outputTask = process.StandardOutput.ReadToEndAsync();
             var errorTask = process.StandardError.ReadToEndAsync();
-
             await Task.WhenAll(outputTask, errorTask, process.WaitForExitAsync());
-
             string output = await outputTask;
             string error = await errorTask;
-
             string result = output.Trim();
             if (string.IsNullOrEmpty(result)) result = error.Trim();
 
@@ -153,7 +140,6 @@ namespace VideoEditorWPF.Services
                     return thumbPath;
             }
             catch { }
-
             return CreateFallbackThumbnail();
         }
 
@@ -171,7 +157,3 @@ namespace VideoEditorWPF.Services
         }
     }
 }
-// Сервис загрузки медиафайлов с асинхронным анализом.
-// Генерирует thumbnails (80x60, 1с FFmpeg) + реальную длительность (ffprobe/ffmpeg async).
-// Batch-загрузка нескольких файлов. Fallback: синий прямоугольник без FFmpeg.
-// Сохраняет thumbs во временную папку с уникальными GUID именами.

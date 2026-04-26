@@ -1,40 +1,26 @@
 ﻿using System;
 using System.Linq;
+using VideoEditorWPF.Interfaces;
 using VideoEditorWPF.Models;
 
 namespace VideoEditorWPF.Factories
 {
-    public interface IClipFactory
-    {
-        Clip CreateClip(MediaFile mediaFile, double startTimeSeconds, double timelineScale, int trackIndex);
-    }
-
     public class ClipFactory : IClipFactory
     {
-        //public Clip CreateClip(MediaFile mediaFile, double startTimeSeconds, double timelineScale, int trackIndex)
-        //{
-        //    return new Clip
-        //    {
-        //        FilePath = mediaFile.FilePath,
-        //        IsVideoClip = mediaFile.FilePath.EndsWith(".mp4") || mediaFile.FilePath.EndsWith(".avi") || mediaFile.FilePath.EndsWith(".mkv"),
-        //        OffsetSeconds = startTimeSeconds,
-        //        DurationSeconds = (float)mediaFile.Duration.TotalSeconds,  // ← Из MediaFile!
-
-        //        TrackIndex = trackIndex
-        //    };
-        //}
-        // В ClipFactory
         public Clip CreateClip(MediaFile mediaFile, double offsetSeconds, double timelineScale, int trackIndex)
         {
             return new Clip
             {
                 FilePath = mediaFile.FilePath,
                 OffsetSeconds = offsetSeconds,
+                SourceDuration = mediaFile.Duration.TotalSeconds,
+                TrimStart = 0,
+                TrimEnd = mediaFile.Duration.TotalSeconds,
                 DurationSeconds = mediaFile.Duration.TotalSeconds,
                 IsVideoClip = IsVideoFile(mediaFile.FilePath),
                 TrackIndex = trackIndex,
-                ClipId = Guid.NewGuid().ToString(), // ✅ Генерируем новый ID
-                InstanceNumber = 1 // Будет перезаписан в SetInstanceNumber
+                ClipId = Guid.NewGuid().ToString(),
+                InstanceNumber = 1
             };
         }
         private bool IsVideoFile(string filePath)
@@ -45,7 +31,3 @@ namespace VideoEditorWPF.Factories
         }
     }
 }
-// Фабрика для создания клипов видеоредактора.
-// Преобразует MediaFile в Clip с расчетом позиции (StartX) и ширины (Width) по timelineScale.
-// Автоматически определяет тип клипа (видео/аудио) по расширению файла.
-// Устанавливает начальную позицию, длительность и трек для timeline.

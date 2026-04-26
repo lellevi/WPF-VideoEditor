@@ -10,9 +10,7 @@ namespace VideoEditorWPF.Models
         private bool _isSelected;
         private bool _isMuted;
         private bool _isLocked;
-
         public Guid Id { get; set; } = Guid.NewGuid();
-
         public string Name
         {
             get => _name;
@@ -25,13 +23,9 @@ namespace VideoEditorWPF.Models
                 }
             }
         }
-
         public MediaType Type { get; set; }
-
         public bool IsDefault { get; set; }
-
         public int TrackIndex { get; set; }
-
         public bool IsSelected
         {
             get => _isSelected;
@@ -57,7 +51,6 @@ namespace VideoEditorWPF.Models
                 }
             }
         }
-
         public bool IsLocked
         {
             get => _isLocked;
@@ -70,7 +63,6 @@ namespace VideoEditorWPF.Models
                 }
             }
         }
-
         public ObservableCollection<Clip> Clips { get; set; }
 
         public bool CanDelete => !IsDefault;
